@@ -34,8 +34,68 @@ const stripPreviewTelemetryScripts = (html: string): string => {
       /<script[^>]*src=["'][^"']*\/cdn-cgi\/[^"']*["'][^>]*>[\s\S]*?<\/script>/gi,
       '',
     )
-    .replace(/https?:\/\/[^"'\s>]+\/cdn-cgi\/rum\?[^"'\s>]*/gi, '');
+    .replace(/https?:\/\/[^"'\s>]+\/cdn-cgi\/rum\?[^"'\s>]*/gi, '')
+    .replace(/\/cdn-cgi\/rum\?/gi, '');
 };
+
+const PREVIEW_NETWORK_GUARD_SCRIPT = `<script id="fxpage-preview-network-guard">(function(){
+  var shouldBlock = function(input){
+    var url = String(input || '');
+    return /\/cdn-cgi\/rum\?/i.test(url) || /cloudflareinsights\.com\/beacon/i.test(url);
+  };
+
+  var normalize = function(input){
+    if (typeof input === 'string') return input;
+    if (input && typeof input.url === 'string') return input.url;
+    return String(input || '');
+  };
+
+  try {
+    if (typeof history !== 'undefined' && 'scrollRestoration' in history) {
+      history.scrollRestoration = 'manual';
+    }
+  } catch (_) {}
+
+  try {
+    var originalFetch = window.fetch;
+    if (typeof originalFetch === 'function') {
+      window.fetch = function(input, init){
+        if (shouldBlock(normalize(input))) {
+          return Promise.resolve(new Response('', { status: 204 }));
+        }
+        return originalFetch.call(window, input, init);
+      };
+    }
+  } catch (_) {}
+
+  try {
+    var xhrOpen = XMLHttpRequest && XMLHttpRequest.prototype && XMLHttpRequest.prototype.open;
+    var xhrSend = XMLHttpRequest && XMLHttpRequest.prototype && XMLHttpRequest.prototype.send;
+    if (xhrOpen && xhrSend) {
+      XMLHttpRequest.prototype.open = function(method, url){
+        this.__fxpageBlocked = shouldBlock(url);
+        return xhrOpen.apply(this, arguments);
+      };
+      XMLHttpRequest.prototype.send = function(){
+        if (this.__fxpageBlocked) {
+          try { this.abort(); } catch (_) {}
+          return;
+        }
+        return xhrSend.apply(this, arguments);
+      };
+    }
+  } catch (_) {}
+
+  try {
+    var originalBeacon = navigator && navigator.sendBeacon;
+    if (typeof originalBeacon === 'function') {
+      navigator.sendBeacon = function(url, data){
+        if (shouldBlock(url)) return true;
+        return originalBeacon.call(navigator, url, data);
+      };
+    }
+  } catch (_) {}
+})();</script>`;
 
 const PREVIEW_BRIDGE_SCRIPT = `<script id="fxpage-preview-bridge">(function(){
   var SOURCE_BUILDER = 'fxpage-builder';
@@ -277,8 +337,11 @@ export class ShopController {
       const baseUrl = new URL(url);
       const base = `${baseUrl.protocol}//${baseUrl.host}`;
 
-      // Inject <base> tag so relative assets load correctly
-      html = html.replace(/<head([^>]*)>/i, `<head$1><base href="${base}/">`);
+      // Inject <base> + network guard so relative assets load and RUM requests are blocked early
+      html = html.replace(
+        /<head([^>]*)>/i,
+        `<head$1><base href="${base}/">${PREVIEW_NETWORK_GUARD_SCRIPT}`,
+      );
 
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       // Explicitly allow framing
