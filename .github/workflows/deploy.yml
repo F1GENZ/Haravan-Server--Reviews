@@ -30,6 +30,6 @@ jobs:
             npm install
             npm run build
 
-            pm2 restart haravan-multipage || pm2 start dist/main.js --name haravan-multipage --watch --env production -- --port=3010
+            pm2 restart haravan-multipage || pm2 start dist/main.js --name haravan-multipage --watch --env production -- --port=3020
             pm2 save
           EOF
