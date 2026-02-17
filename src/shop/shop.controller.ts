@@ -63,13 +63,10 @@ const stripPreviewTelemetryScripts = (html: string): string => {
 };
 
 const PREVIEW_NETWORK_GUARD_SCRIPT = `<script id="fxpage-preview-network-guard">(function(){
-  var BLOCKED = /\/cdn-cgi\//i;
-  var BLOCKED_SRC = /cloudflareinsights|beacon\.min\.js|\/cdn-cgi\//i;
+  if (window.__fxpagePreviewGuardInstalled) return;
+  window.__fxpagePreviewGuardInstalled = true;
 
-  var shouldBlock = function(input){
-    var url = String(input || '');
-    return BLOCKED.test(url) || /cloudflareinsights/i.test(url);
-  };
+  var BLOCKED_SRC = /cloudflareinsights|beacon\.min\.js|\/cdn-cgi\//i;
 
   var normalize = function(input){
     if (typeof input === 'string') return input;
@@ -77,19 +74,22 @@ const PREVIEW_NETWORK_GUARD_SCRIPT = `<script id="fxpage-preview-network-guard">
     return String(input || '');
   };
 
-  /* ---------- scroll restoration ---------- */
+  var shouldBlock = function(input){
+    var url = normalize(input);
+    return BLOCKED_SRC.test(url);
+  };
+
   try {
     if (typeof history !== 'undefined' && 'scrollRestoration' in history) {
       history.scrollRestoration = 'manual';
     }
   } catch (_) {}
 
-  /* ---------- fetch ---------- */
   try {
     var originalFetch = window.fetch;
     if (typeof originalFetch === 'function') {
       window.fetch = function(input, init){
-        if (shouldBlock(normalize(input))) {
+        if (shouldBlock(input)) {
           return Promise.resolve(new Response('', { status: 204 }));
         }
         return originalFetch.call(window, input, init);
@@ -97,22 +97,36 @@ const PREVIEW_NETWORK_GUARD_SCRIPT = `<script id="fxpage-preview-network-guard">
     }
   } catch (_) {}
 
-  /* ---------- XHR ---------- */
   try {
     var xhrOpen = XMLHttpRequest.prototype.open;
     var xhrSend = XMLHttpRequest.prototype.send;
+    var xhrSetRequestHeader = XMLHttpRequest.prototype.setRequestHeader;
+
     XMLHttpRequest.prototype.open = function(method, url){
-      this.__fxpageBlocked = shouldBlock(String(url || ''));
-      if (this.__fxpageBlocked) return;          /* don't even open */
+      this.__fxpageBlocked = shouldBlock(url);
+      if (this.__fxpageBlocked) {
+        return xhrOpen.call(this, 'GET', 'about:blank', true);
+      }
       return xhrOpen.apply(this, arguments);
     };
-    XMLHttpRequest.prototype.send = function(){
-      if (this.__fxpageBlocked) return;          /* silently drop */
-      return xhrSend.apply(this, arguments);
+
+    XMLHttpRequest.prototype.setRequestHeader = function(name, value){
+      if (this.__fxpageBlocked) return;
+      return xhrSetRequestHeader.call(this, name, value);
+    };
+
+    XMLHttpRequest.prototype.send = function(body){
+      if (this.__fxpageBlocked) {
+        try {
+          return xhrSend.call(this, null);
+        } catch (_) {
+          return;
+        }
+      }
+      return xhrSend.call(this, body);
     };
   } catch (_) {}
 
-  /* ---------- sendBeacon ---------- */
   try {
     var originalBeacon = navigator.sendBeacon;
     if (typeof originalBeacon === 'function') {
@@ -123,29 +137,41 @@ const PREVIEW_NETWORK_GUARD_SCRIPT = `<script id="fxpage-preview-network-guard">
     }
   } catch (_) {}
 
-  /* ---------- kill existing & future beacon <script> elements ---------- */
   var killBeaconScript = function(el){
-    if (!el || el.nodeType !== 1) return;
-    if (el.tagName !== 'SCRIPT') return;
+    if (!el || el.nodeType !== 1) return false;
+    if (el.tagName !== 'SCRIPT') return false;
     var src = el.getAttribute('src') || '';
-    if (el.hasAttribute('data-cf-beacon') || BLOCKED_SRC.test(src)) {
-      el.type = 'text/blocked';          /* prevent execution */
-      try { el.remove(); } catch (_) {}  /* remove from DOM */
-    }
+    var blocked = el.hasAttribute('data-cf-beacon') || BLOCKED_SRC.test(src);
+    if (!blocked) return false;
+    el.__fxpageBlockedScript = true;
+    el.type = 'text/blocked';
+    try { el.remove(); } catch (_) {}
+    return true;
   };
 
-  /* Remove beacon scripts already in DOM */
+  try {
+    var appendChildNative = Element.prototype.appendChild;
+    Element.prototype.appendChild = function(node){
+      if (killBeaconScript(node)) return node;
+      return appendChildNative.call(this, node);
+    };
+
+    var insertBeforeNative = Element.prototype.insertBefore;
+    Element.prototype.insertBefore = function(node, ref){
+      if (killBeaconScript(node)) return node;
+      return insertBeforeNative.call(this, node, ref);
+    };
+  } catch (_) {}
+
   try {
     var existing = document.querySelectorAll('script[data-cf-beacon], script[src*="cloudflareinsights"], script[src*="beacon.min.js"], script[src*="/cdn-cgi/"]');
     for (var i = 0; i < existing.length; i++) {
-      existing[i].type = 'text/blocked';
-      try { existing[i].remove(); } catch (_) {}
+      killBeaconScript(existing[i]);
     }
   } catch (_) {}
 
-  /* MutationObserver — catch dynamically injected scripts */
   try {
-    var obs = new MutationObserver(function(mutations){
+    var observer = new MutationObserver(function(mutations){
       for (var m = 0; m < mutations.length; m++) {
         var nodes = mutations[m].addedNodes;
         for (var n = 0; n < nodes.length; n++) {
@@ -153,20 +179,22 @@ const PREVIEW_NETWORK_GUARD_SCRIPT = `<script id="fxpage-preview-network-guard">
         }
       }
     });
-    obs.observe(document.documentElement, { childList: true, subtree: true });
+    observer.observe(document.documentElement, { childList: true, subtree: true });
   } catch (_) {}
-
-  /* Also run cleanup after DOM is ready */
-  document.addEventListener('DOMContentLoaded', function(){
-    try {
-      var scripts = document.querySelectorAll('script[data-cf-beacon], script[src*="cloudflareinsights"], script[src*="beacon.min.js"], script[src*="/cdn-cgi/"]');
-      for (var i = 0; i < scripts.length; i++) {
-        scripts[i].type = 'text/blocked';
-        try { scripts[i].remove(); } catch (_) {}
-      }
-    } catch (_) {}
-  });
 })();</script>`;
+
+const injectPreviewNetworkGuard = (html: string): string => {
+  if (html.includes('id="fxpage-preview-network-guard"')) return html;
+  return `${PREVIEW_NETWORK_GUARD_SCRIPT}${html}`;
+};
+
+const injectPreviewBaseHref = (html: string, base: string): string => {
+  if (/<base\s+href=/i.test(html)) return html;
+  if (/<head([^>]*)>/i.test(html)) {
+    return html.replace(/<head([^>]*)>/i, `<head$1><base href="${base}/">`);
+  }
+  return `<head><base href="${base}/"></head>${html}`;
+};
 
 const PREVIEW_BRIDGE_SCRIPT = `<script id="fxpage-preview-bridge">(function(){
   var SOURCE_BUILDER = 'fxpage-builder';
@@ -402,17 +430,15 @@ export class ShopController {
       let html = await response.text();
 
       html = stripPreviewTelemetryScripts(html);
+      html = injectPreviewNetworkGuard(html);
       html = injectPreviewBridge(html);
 
       // Rewrite relative URLs to absolute
       const baseUrl = new URL(url);
       const base = `${baseUrl.protocol}//${baseUrl.host}`;
 
-      // Inject <base> + network guard so relative assets load and RUM requests are blocked early
-      html = html.replace(
-        /<head([^>]*)>/i,
-        `<head$1><base href="${base}/">${PREVIEW_NETWORK_GUARD_SCRIPT}`,
-      );
+      // Inject <base> so relative assets resolve correctly in preview response
+      html = injectPreviewBaseHref(html, base);
 
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       // Explicitly allow framing
