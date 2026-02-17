@@ -22,26 +22,53 @@ const getErrorMessage = (error: unknown): string => {
 
 const stripPreviewTelemetryScripts = (html: string): string => {
   return html
+    // 1. scripts with data-cf-beacon attribute
     .replace(
       /<script[^>]*data-cf-beacon[^>]*>[\s\S]*?<\/script>/gi,
       '',
     )
+    // 2. scripts sourcing cloudflareinsights
     .replace(
-      /<script[^>]*src=["'][^"']*cloudflareinsights\.com\/beacon[^"']*["'][^>]*>[\s\S]*?<\/script>/gi,
+      /<script[^>]*src=["'][^"']*cloudflareinsights[^"']*["'][^>]*>[\s\S]*?<\/script>/gi,
       '',
     )
+    // 3. scripts sourcing beacon.min.js
+    .replace(
+      /<script[^>]*src=["'][^"']*beacon\.min\.js[^"']*["'][^>]*>[\s\S]*?<\/script>/gi,
+      '',
+    )
+    // 4. scripts sourcing /cdn-cgi/
     .replace(
       /<script[^>]*src=["'][^"']*\/cdn-cgi\/[^"']*["'][^>]*>[\s\S]*?<\/script>/gi,
       '',
     )
+    // 5. inline scripts whose body mentions cdn-cgi/rum
+    .replace(
+      /<script(?![^>]*src=)[^>]*>[\s\S]*?cdn-cgi\/rum[\s\S]*?<\/script>/gi,
+      '',
+    )
+    // 6. inline scripts whose body mentions cloudflareinsights
+    .replace(
+      /<script(?![^>]*src=)[^>]*>[\s\S]*?cloudflareinsights[\s\S]*?<\/script>/gi,
+      '',
+    )
+    // 7. leftover bare URLs
     .replace(/https?:\/\/[^"'\s>]+\/cdn-cgi\/rum\?[^"'\s>]*/gi, '')
-    .replace(/\/cdn-cgi\/rum\?/gi, '');
+    .replace(/\/cdn-cgi\/rum\?/gi, '')
+    // 8. noscript/img tracking pixels from cloudflare
+    .replace(
+      /<noscript>[\s\S]*?cloudflare[\s\S]*?<\/noscript>/gi,
+      '',
+    );
 };
 
 const PREVIEW_NETWORK_GUARD_SCRIPT = `<script id="fxpage-preview-network-guard">(function(){
+  var BLOCKED = /\/cdn-cgi\//i;
+  var BLOCKED_SRC = /cloudflareinsights|beacon\.min\.js|\/cdn-cgi\//i;
+
   var shouldBlock = function(input){
     var url = String(input || '');
-    return /\/cdn-cgi\/rum\?/i.test(url) || /cloudflareinsights\.com\/beacon/i.test(url);
+    return BLOCKED.test(url) || /cloudflareinsights/i.test(url);
   };
 
   var normalize = function(input){
@@ -50,12 +77,14 @@ const PREVIEW_NETWORK_GUARD_SCRIPT = `<script id="fxpage-preview-network-guard">
     return String(input || '');
   };
 
+  /* ---------- scroll restoration ---------- */
   try {
     if (typeof history !== 'undefined' && 'scrollRestoration' in history) {
       history.scrollRestoration = 'manual';
     }
   } catch (_) {}
 
+  /* ---------- fetch ---------- */
   try {
     var originalFetch = window.fetch;
     if (typeof originalFetch === 'function') {
@@ -68,33 +97,75 @@ const PREVIEW_NETWORK_GUARD_SCRIPT = `<script id="fxpage-preview-network-guard">
     }
   } catch (_) {}
 
+  /* ---------- XHR ---------- */
   try {
-    var xhrOpen = XMLHttpRequest && XMLHttpRequest.prototype && XMLHttpRequest.prototype.open;
-    var xhrSend = XMLHttpRequest && XMLHttpRequest.prototype && XMLHttpRequest.prototype.send;
-    if (xhrOpen && xhrSend) {
-      XMLHttpRequest.prototype.open = function(method, url){
-        this.__fxpageBlocked = shouldBlock(url);
-        return xhrOpen.apply(this, arguments);
-      };
-      XMLHttpRequest.prototype.send = function(){
-        if (this.__fxpageBlocked) {
-          try { this.abort(); } catch (_) {}
-          return;
-        }
-        return xhrSend.apply(this, arguments);
+    var xhrOpen = XMLHttpRequest.prototype.open;
+    var xhrSend = XMLHttpRequest.prototype.send;
+    XMLHttpRequest.prototype.open = function(method, url){
+      this.__fxpageBlocked = shouldBlock(String(url || ''));
+      if (this.__fxpageBlocked) return;          /* don't even open */
+      return xhrOpen.apply(this, arguments);
+    };
+    XMLHttpRequest.prototype.send = function(){
+      if (this.__fxpageBlocked) return;          /* silently drop */
+      return xhrSend.apply(this, arguments);
+    };
+  } catch (_) {}
+
+  /* ---------- sendBeacon ---------- */
+  try {
+    var originalBeacon = navigator.sendBeacon;
+    if (typeof originalBeacon === 'function') {
+      navigator.sendBeacon = function(url){
+        if (shouldBlock(url)) return true;
+        return originalBeacon.apply(navigator, arguments);
       };
     }
   } catch (_) {}
 
+  /* ---------- kill existing & future beacon <script> elements ---------- */
+  var killBeaconScript = function(el){
+    if (!el || el.nodeType !== 1) return;
+    if (el.tagName !== 'SCRIPT') return;
+    var src = el.getAttribute('src') || '';
+    if (el.hasAttribute('data-cf-beacon') || BLOCKED_SRC.test(src)) {
+      el.type = 'text/blocked';          /* prevent execution */
+      try { el.remove(); } catch (_) {}  /* remove from DOM */
+    }
+  };
+
+  /* Remove beacon scripts already in DOM */
   try {
-    var originalBeacon = navigator && navigator.sendBeacon;
-    if (typeof originalBeacon === 'function') {
-      navigator.sendBeacon = function(url, data){
-        if (shouldBlock(url)) return true;
-        return originalBeacon.call(navigator, url, data);
-      };
+    var existing = document.querySelectorAll('script[data-cf-beacon], script[src*="cloudflareinsights"], script[src*="beacon.min.js"], script[src*="/cdn-cgi/"]');
+    for (var i = 0; i < existing.length; i++) {
+      existing[i].type = 'text/blocked';
+      try { existing[i].remove(); } catch (_) {}
     }
   } catch (_) {}
+
+  /* MutationObserver — catch dynamically injected scripts */
+  try {
+    var obs = new MutationObserver(function(mutations){
+      for (var m = 0; m < mutations.length; m++) {
+        var nodes = mutations[m].addedNodes;
+        for (var n = 0; n < nodes.length; n++) {
+          killBeaconScript(nodes[n]);
+        }
+      }
+    });
+    obs.observe(document.documentElement, { childList: true, subtree: true });
+  } catch (_) {}
+
+  /* Also run cleanup after DOM is ready */
+  document.addEventListener('DOMContentLoaded', function(){
+    try {
+      var scripts = document.querySelectorAll('script[data-cf-beacon], script[src*="cloudflareinsights"], script[src*="beacon.min.js"], script[src*="/cdn-cgi/"]');
+      for (var i = 0; i < scripts.length; i++) {
+        scripts[i].type = 'text/blocked';
+        try { scripts[i].remove(); } catch (_) {}
+      }
+    } catch (_) {}
+  });
 })();</script>`;
 
 const PREVIEW_BRIDGE_SCRIPT = `<script id="fxpage-preview-bridge">(function(){
