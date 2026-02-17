@@ -1,0 +1,35 @@
+name: 🚀 Deploy App Haravan Multipage by F1GENZ to DO VPS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy via SSH
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🧾 Checkout source
+        uses: actions/checkout@v3
+
+      - name: 🔐 Setup SSH connection
+        uses: webfactory/ssh-agent@v0.7.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: 🚀 Deploy to VPS
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'EOF'
+            cd ${{ secrets.APP_DIR }}
+            git reset --hard origin/main
+            git pull origin main
+
+            rm -rf dist node_modules
+            npm install
+            npm run build
+
+            pm2 restart haravan-multipage || pm2 start dist/main.js --name haravan-multipage --watch --env production -- --port=3010
+            pm2 save
+          EOF
