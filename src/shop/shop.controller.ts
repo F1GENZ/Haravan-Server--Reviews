@@ -200,6 +200,44 @@ const PREVIEW_BRIDGE_SCRIPT = `<script id="fxpage-preview-bridge">(function(){
   var SOURCE_BUILDER = 'fxpage-builder';
   var SOURCE_PREVIEW = 'fxpage-preview';
   var raf = null;
+  var scrollRestoreDone = false;
+
+  var getScrollStorageKey = function(){
+    try {
+      var params = new URLSearchParams(window.location.search || '');
+      var target = params.get('url') || window.location.pathname || 'preview';
+      return 'fxpage:preview:scroll:' + target;
+    } catch (_) {
+      return 'fxpage:preview:scroll:default';
+    }
+  };
+
+  var saveScrollSnapshot = function(x, y){
+    try {
+      sessionStorage.setItem(
+        getScrollStorageKey(),
+        JSON.stringify({ x: Number(x || 0), y: Number(y || 0) })
+      );
+    } catch (_) {}
+  };
+
+  var restoreScrollSnapshot = function(){
+    if (scrollRestoreDone) return;
+    scrollRestoreDone = true;
+    try {
+      var raw = sessionStorage.getItem(getScrollStorageKey());
+      if (!raw) return;
+      var parsed = JSON.parse(raw);
+      var x = Number(parsed && parsed.x);
+      var y = Number(parsed && parsed.y);
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+      window.requestAnimationFrame(function(){
+        window.requestAnimationFrame(function(){
+          window.scrollTo(x, y);
+        });
+      });
+    } catch (_) {}
+  };
 
   var getString = function(value){
     if (value === undefined || value === null) return '';
@@ -237,6 +275,7 @@ const PREVIEW_BRIDGE_SCRIPT = `<script id="fxpage-preview-bridge">(function(){
   };
 
   var postScroll = function(){
+    saveScrollSnapshot(window.scrollX || 0, window.scrollY || 0);
     try {
       window.parent.postMessage({
         source: SOURCE_PREVIEW,
@@ -351,7 +390,10 @@ const PREVIEW_BRIDGE_SCRIPT = `<script id="fxpage-preview-bridge">(function(){
     }
 
     if (data.type === 'fxpage:setScroll') {
-      window.scrollTo(Number(data.x || 0), Number(data.y || 0));
+      var x = Number(data.x || 0);
+      var y = Number(data.y || 0);
+      window.scrollTo(x, y);
+      saveScrollSnapshot(x, y);
       return;
     }
 
@@ -361,7 +403,12 @@ const PREVIEW_BRIDGE_SCRIPT = `<script id="fxpage-preview-bridge">(function(){
   });
 
   window.addEventListener('scroll', scheduleScrollPost, { passive: true });
-  window.addEventListener('load', postScroll);
+  window.addEventListener('DOMContentLoaded', restoreScrollSnapshot, { once: true });
+  window.addEventListener('pageshow', restoreScrollSnapshot, { once: true });
+  window.addEventListener('load', function(){
+    restoreScrollSnapshot();
+    postScroll();
+  });
 })();</script>`;
 
 const injectPreviewBridge = (html: string): string => {
