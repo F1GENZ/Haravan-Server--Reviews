@@ -294,6 +294,24 @@ const PREVIEW_BRIDGE_SCRIPT = `<script id="fxpage-preview-bridge">(function(){
     });
   };
 
+  var onKeyDown = function(event){
+    if (!event) return;
+    var key = String(event.key || '').toLowerCase();
+    var isSave = (event.ctrlKey || event.metaKey) && key === 's';
+    if (!isSave) return;
+
+    try { event.preventDefault(); } catch (_) {}
+    try { event.stopPropagation(); } catch (_) {}
+
+    try {
+      window.parent.postMessage({
+        source: SOURCE_PREVIEW,
+        type: 'fxpage:saveShortcut',
+        withShift: !!event.shiftKey
+      }, '*');
+    } catch (_) {}
+  };
+
   var applyTemplate01Settings = function(values){
     if (!values || typeof values !== 'object') return;
 
@@ -402,6 +420,7 @@ const PREVIEW_BRIDGE_SCRIPT = `<script id="fxpage-preview-bridge">(function(){
     }
   });
 
+  window.addEventListener('keydown', onKeyDown, true);
   window.addEventListener('scroll', scheduleScrollPost, { passive: true });
   window.addEventListener('DOMContentLoaded', restoreScrollSnapshot, { once: true });
   window.addEventListener('pageshow', restoreScrollSnapshot, { once: true });
