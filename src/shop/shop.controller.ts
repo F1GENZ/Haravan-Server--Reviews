@@ -185,6 +185,18 @@ const PREVIEW_NETWORK_GUARD_SCRIPT = `<script id="fxpage-preview-network-guard">
 
 const injectPreviewNetworkGuard = (html: string): string => {
   if (html.includes('id="fxpage-preview-network-guard"')) return html;
+  if (/<head([^>]*)>/i.test(html)) {
+    return html.replace(
+      /<head([^>]*)>/i,
+      `<head$1>${PREVIEW_NETWORK_GUARD_SCRIPT}`,
+    );
+  }
+  if (/<body([^>]*)>/i.test(html)) {
+    return html.replace(
+      /<body([^>]*)>/i,
+      `<body$1>${PREVIEW_NETWORK_GUARD_SCRIPT}`,
+    );
+  }
   return `${PREVIEW_NETWORK_GUARD_SCRIPT}${html}`;
 };
 
