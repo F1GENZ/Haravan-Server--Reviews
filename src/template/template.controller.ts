@@ -1,6 +1,6 @@
 import { Controller, Get, Param, UseGuards } from '@nestjs/common';
 import { TemplateService } from './template.service';
-import { ShopAuth } from '../common/decorators/shop-auth.decorator';
+import { ShopAuth, ShopOrgId } from '../common/decorators/shop-auth.decorator';
 import { ShopAuthGuard } from '../common/guards/shop-auth.guard';
 
 @Controller('templates')
@@ -10,10 +10,10 @@ export class TemplateController {
   // GET /api/templates
   @UseGuards(ShopAuthGuard)
   @Get()
-  async getTemplates(@ShopAuth() token: string) {
+  async getTemplates(@ShopAuth() token: string, @ShopOrgId() orgid: string) {
     return {
       success: true,
-      data: await this.templateService.getTemplates(token),
+      data: await this.templateService.getTemplates(token, orgid),
     };
   }
 
@@ -22,11 +22,12 @@ export class TemplateController {
   @Get(':handle')
   async getTemplateSchema(
     @ShopAuth() token: string,
+    @ShopOrgId() orgid: string,
     @Param('handle') handle: string,
   ) {
     return {
       success: true,
-      data: await this.templateService.getTemplateSchema(token, handle),
+      data: await this.templateService.getTemplateSchema(token, orgid, handle),
     };
   }
 }

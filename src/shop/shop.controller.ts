@@ -5,6 +5,8 @@ import { ShopAuth, ShopOrgId } from '../common/decorators/shop-auth.decorator';
 import { RedisService } from '../redis/redis.service';
 import { HaravanAPIService } from '../haravan/haravan.api';
 
+const PREVIEW_CACHE_TTL = 45; // seconds
+
 type RedisInstallData = {
   orgsub?: string;
 };
@@ -59,8 +61,19 @@ const stripPreviewTelemetryScripts = (html: string): string => {
     .replace(
       /<noscript>[\s\S]*?cloudflare[\s\S]*?<\/noscript>/gi,
       '',
+    )
+    // 9. ALL inline <script> blocks that reference cdn-cgi/rum (fire before guard installs)
+    .replace(
+      /<script(?![^>]*type\s*=\s*["'](?:application\/ld\+json|application\/json)["'])[^>]*>[\s\S]*?cdn-cgi\/rum[\s\S]*?<\/script>/gi,
+      '',
+    )
+    // 10. inline scripts with sendBeacon targeting cdn-cgi
+    .replace(
+      /<script[^>]*>[\s\S]*?sendBeacon[\s\S]*?cdn-cgi[\s\S]*?<\/script>/gi,
+      '',
     );
 };
+
 
 const PREVIEW_NETWORK_GUARD_SCRIPT = `<script id="fxpage-preview-network-guard">(function(){
   if (window.__fxpagePreviewGuardInstalled) return;
@@ -496,7 +509,50 @@ export class ShopController {
       return res.status(400).send('Missing url param');
     }
 
+    // ── SSRF Protection: only allow safe shop domains ────────────────────────
+    let parsedUrl: URL;
     try {
+      parsedUrl = new URL(url);
+    } catch {
+      return res.status(400).send('Invalid URL format');
+    }
+
+    const hostname = parsedUrl.hostname.toLowerCase();
+    const SAFE_SUFFIXES = ['.myharavan.com', '.haravan.com'];
+    const isSafeDomain = SAFE_SUFFIXES.some((s) => hostname.endsWith(s));
+
+    // Also allow the shop's own registered domain (fetched from Redis install data)
+    let isShopDomain = false;
+    try {
+      const installData = await this.redis.get<RedisInstallData & { domain?: string }>(
+        `haravan:multipage:app_install:${orgid}`,
+      );
+      const shopDomain = (installData?.domain || '').toLowerCase().replace(/^https?:\/\//, '').split('/')[0];
+      if (shopDomain && hostname === shopDomain) isShopDomain = true;
+    } catch { /* ignore — fall through to safe-suffix check only */ }
+
+    if (!isSafeDomain && !isShopDomain) {
+      this.logger.warn(`SSRF blocked: orgid=${orgid} url=${url}`);
+      return res.status(403).send('Preview URL domain not allowed');
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
+    // Strip cache-bust params before cache lookup so _cb/_ts don't create duplicates
+    parsedUrl.searchParams.delete('_cb');
+    parsedUrl.searchParams.delete('_ts');
+    const cacheKey = `haravan:multipage:preview_html:${orgid}:${parsedUrl.toString()}`;
+
+    try {
+      // Check Redis cache first
+      const cached = await this.redis.get<string>(cacheKey);
+      if (cached) {
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.removeHeader('X-Frame-Options');
+        res.setHeader('Content-Security-Policy', 'frame-ancestors *');
+        res.setHeader('X-Preview-Cache', 'HIT');
+        return res.send(cached);
+      }
+
       const response = await fetch(url, {
         headers: {
           'User-Agent':
@@ -518,10 +574,13 @@ export class ShopController {
       // Inject <base> so relative assets resolve correctly in preview response
       html = injectPreviewBaseHref(html, base);
 
+      // Cache the processed HTML in Redis
+      await this.redis.set(cacheKey, html, PREVIEW_CACHE_TTL);
+
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      // Explicitly allow framing
       res.removeHeader('X-Frame-Options');
       res.setHeader('Content-Security-Policy', 'frame-ancestors *');
+      res.setHeader('X-Preview-Cache', 'MISS');
       res.send(html);
     } catch (error) {
       res.status(502).send('Failed to load preview: ' + getErrorMessage(error));

@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { HaravanAPIService } from '../haravan/haravan.api';
+import { RedisService } from '../redis/redis.service';
 
 type ThemeItem = {
   id?: string | number;
@@ -21,18 +22,45 @@ const getErrorMessage = (error: unknown): string => {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
 
+/** Cache active theme ID for 5 minutes to avoid hitting Haravan API on every request */
+const THEME_ID_CACHE_TTL = 300;
+
 @Injectable()
 export class TemplateService {
   private readonly logger = new Logger(TemplateService.name);
 
-  constructor(private readonly haravanAPI: HaravanAPIService) {}
+  constructor(
+    private readonly haravanAPI: HaravanAPIService,
+    private readonly redis: RedisService,
+  ) {}
 
-  // Get the active/main theme ID
-  private async getActiveThemeId(token: string): Promise<string | null> {
+  /**
+   * Get the active/main theme ID, cached in Redis for 5 minutes.
+   * Each `orgid` stores its own cache key.
+   */
+  private async getActiveThemeId(
+    token: string,
+    orgid: string,
+  ): Promise<string | null> {
+    const cacheKey = `haravan:multipage:active_theme_id:${orgid}`;
+
+    try {
+      const cached = await this.redis.get<string>(cacheKey);
+      if (cached) return cached;
+    } catch { /* ignore Redis errors — fall through to API */ }
+
     try {
       const themes = (await this.haravanAPI.getThemes(token)) as ThemeItem[];
       const mainTheme = themes.find((theme) => theme.role === 'main');
-      return mainTheme?.id?.toString() || null;
+      const themeId = mainTheme?.id?.toString() || null;
+
+      if (themeId) {
+        try {
+          await this.redis.set(cacheKey, themeId, THEME_ID_CACHE_TTL);
+        } catch { /* ignore Redis write errors */ }
+      }
+
+      return themeId;
     } catch (error) {
       this.logger.error(
         `Failed to find active theme: ${getErrorMessage(error)}`,
@@ -44,10 +72,11 @@ export class TemplateService {
   // List all fxpage template handles from theme assets
   async getTemplates(
     token: string,
+    orgid: string,
   ): Promise<
     Array<{ handle: string; key: string; size?: number; updated_at?: string }>
   > {
-    const themeId = await this.getActiveThemeId(token);
+    const themeId = await this.getActiveThemeId(token, orgid);
     if (!themeId) return [];
 
     const assets = (await this.haravanAPI.getAssets(
@@ -73,8 +102,12 @@ export class TemplateService {
   }
 
   // Get the full JSON schema for a template handle
-  async getTemplateSchema(token: string, handle: string): Promise<unknown> {
-    const themeId = await this.getActiveThemeId(token);
+  async getTemplateSchema(
+    token: string,
+    orgid: string,
+    handle: string,
+  ): Promise<unknown> {
+    const themeId = await this.getActiveThemeId(token, orgid);
     if (!themeId) return null;
 
     // Strip "page.fxpage." prefix if handle already contains it
