@@ -60,10 +60,20 @@ export class ResourceController {
 
   @UseGuards(ShopAuthGuard)
   @Get('link-lists')
-  async getLinkLists(@Query('domain') domain: string) {
+  async getLinkLists(@ShopAuth() token: string, @Query('domain') domain: string) {
+    // If no domain passed, resolve from shop API
+    let resolvedDomain: string = domain || '';
+    if (!resolvedDomain) {
+      try {
+        const shop = await this.haravanAPI.getShop(token) as Record<string, string>;
+        resolvedDomain = shop?.domain || shop?.myharavan_domain || '';
+      } catch {
+        // ignore, will fail below
+      }
+    }
     return {
       success: true,
-      data: await this.haravanAPI.getLinkListsByDomain(domain),
+      data: await this.haravanAPI.getLinkListsByDomain(resolvedDomain),
     };
   }
 }
