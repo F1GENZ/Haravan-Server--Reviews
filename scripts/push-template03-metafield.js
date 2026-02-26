@@ -10,6 +10,9 @@ const axios = require('axios');
 
 function buildDemoSettings(pageId) {
   return {
+    // ── PRODUCT HANDLE ──────────────────────────────────────
+    fxpage03_product_handle: '',
+
     // ── TOPBAR ──────────────────────────────────────────────
     fxpage03_brand_name: 'F1GENZ / LUXURY',
     fxpage03_pill_text: 'Bộ sưu tập giới hạn',
