@@ -65,7 +65,7 @@ function buildDemoSettings(pageId) {
     fxpage03_product_price_tag: 'Giới hạn theo mùa',
     fxpage03_product_stock_label: 'Số lượng còn lại',
     fxpage03_stock_initial: '12',
-    fxpage03_product_exchange_note: 'Đổi size trong 7 ngày',
+    fxpage03_product_exchange_note: 'Đổi size trong <b>7 ngày</b>',
     fxpage03_product_cta_text: 'Tiến hành đặt mua',
     fxpage03_sticky_cta_text: 'Chỉ dành cho bạn',
     fxpage03_checkout_url: '/checkout',
