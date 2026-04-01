@@ -1,0 +1,30 @@
+{% comment %}
+  F1GENZ Rating Badge
+  Dùng trong product loop: {% include 'f1genz-rating-badge' %}
+
+  Summary đọc từ product metafield reviews.summary.
+  Config giao diện đọc từ app public endpoint để luôn đồng bộ với Dashboard.
+{% endcomment %}
+
+{% if shop.metafields.f1genz.config != blank %}
+  {% assign app_config = shop.metafields.f1genz.config %}
+  {% assign f1g_api_url = app_config.value.apiUrl | default: '' %}
+  {% assign f1g_orgid = app_config.value.orgid | default: '' %}
+
+  {% assign review_summary = product.metafields.reviews.summary %}
+  {% assign avg_rating = review_summary.value.avg | default: 0 | plus: 0.0 %}
+  {% assign review_count = review_summary.value.count | default: 0 | plus: 0 %}
+
+  {% unless f1g_api_url contains 'http' %}{% assign f1g_api_url = blank %}{% endunless %}
+
+  {% if f1g_api_url != blank and f1g_orgid != blank and review_count > 0 %}
+    <link rel="stylesheet" href="{{ f1g_api_url }}/storefront/f1genz-storefront.css">
+    <f1genz-rating-badge
+      api-url="{{ f1g_api_url }}"
+      orgid="{{ f1g_orgid }}"
+      avg-rating="{{ avg_rating }}"
+      review-count="{{ review_count }}"
+    ></f1genz-rating-badge>
+    <script src="{{ f1g_api_url }}/storefront/f1genz-storefront.js" defer></script>
+  {% endif %}
+{% endif %}

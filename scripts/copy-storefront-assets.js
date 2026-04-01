@@ -2,7 +2,7 @@ const { cpSync, existsSync, mkdirSync } = require('fs');
 const { join, resolve } = require('path');
 
 const serverRoot = resolve(__dirname, '..');
-const sourceDir = resolve(serverRoot, '..', 'storefront', 'snippets');
+const sourceDir = resolve(serverRoot, 'storefront', 'snippets');
 const targetDir = join(serverRoot, 'dist', 'storefront', 'snippets');
 
 if (!existsSync(sourceDir)) {

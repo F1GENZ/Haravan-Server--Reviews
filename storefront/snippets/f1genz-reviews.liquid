@@ -1,0 +1,27 @@
+{% comment %}
+  F1GENZ Reviews Widget - Storefront
+  Include trong product.liquid: {% include 'f1genz-reviews' %}
+
+  Widget này gộp chung Reviews + QnA nhưng giữ nguyên entrypoint cũ.
+{% endcomment %}
+
+{% if shop.metafields.f1genz.config != blank %}
+  {% assign app_config = shop.metafields.f1genz.config %}
+  {% assign f1g_api_url = app_config.value.apiUrl | default: '' %}
+  {% assign f1g_orgid = app_config.value.orgid | default: '' %}
+
+  {% unless f1g_api_url contains 'http' %}{% assign f1g_api_url = blank %}{% endunless %}
+  {% if f1g_api_url != blank and f1g_orgid != blank %}
+    <link rel="stylesheet" href="{{ f1g_api_url }}/storefront/f1genz-storefront.css">
+    <f1genz-reviews
+      product-id="{{ product.id }}"
+      api-url="{{ f1g_api_url }}"
+      orgid="{{ f1g_orgid }}"
+    ></f1genz-reviews>
+    <script src="{{ f1g_api_url }}/storefront/f1genz-storefront.js" defer></script>
+  {% else %}
+    <!-- F1GENZ Reviews: Cau hinh khong hop le. -->
+  {% endif %}
+{% else %}
+  <!-- F1GENZ Reviews: Ung dung chua duoc thiet lap. -->
+{% endif %}
