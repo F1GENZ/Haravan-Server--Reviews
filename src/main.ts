@@ -110,8 +110,15 @@ async function bootstrap() {
     app.use(
       '/storefront',
       express.static(sp, {
-        maxAge: '1h',
-        setHeaders: (res: any) => res.set('Access-Control-Allow-Origin', '*'),
+        maxAge: 0,
+        etag: true,
+        lastModified: true,
+        setHeaders: (res: any) => {
+          res.set('Access-Control-Allow-Origin', '*');
+          res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+          res.set('Pragma', 'no-cache');
+          res.set('Expires', '0');
+        },
       }),
     );
   }

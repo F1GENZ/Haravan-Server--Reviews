@@ -144,7 +144,9 @@ export class StorefrontAssetController {
       const js = this.getRuntimeJs();
       res.set({
         'Content-Type': 'application/javascript; charset=utf-8',
-        'Cache-Control': 'public, max-age=3600',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        Pragma: 'no-cache',
+        Expires: '0',
         'Access-Control-Allow-Origin': '*',
       });
       if (this.lastModified) {
@@ -162,7 +164,9 @@ export class StorefrontAssetController {
       const css = this.getRuntimeCss();
       res.set({
         'Content-Type': 'text/css; charset=utf-8',
-        'Cache-Control': 'public, max-age=3600',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        Pragma: 'no-cache',
+        Expires: '0',
         'Access-Control-Allow-Origin': '*',
       });
       if (this.cssLastModified) {
