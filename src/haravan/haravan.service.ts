@@ -11,7 +11,7 @@ import axios from 'axios';
 import * as crypto from 'crypto';
 import type { Request, Response } from 'express';
 
-const REDIS_PREFIX = 'haravan:multipage:app_install';
+const REDIS_PREFIX = 'haravan:reviews:app_install';
 
 type HaravanConfig = {
   frontEndUrl: string;
@@ -37,6 +37,7 @@ type RedisInstallData = {
   orgsub?: string;
   status?: string;
   expires_at?: number;
+  installed_at?: number;
 };
 
 type OAuthTokenPayload = {
@@ -78,6 +79,8 @@ const decodeJwtClaims = (idToken: string): Record<string, unknown> => {
 @Injectable()
 export class HaravanService {
   private readonly logger = new Logger(HaravanService.name);
+  private static readonly SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
+  private static readonly REFRESH_WINDOW_MS = 30 * 60 * 1000;
 
   constructor(
     private readonly config: ConfigService,
@@ -102,6 +105,73 @@ export class HaravanService {
       responseType: this.config.get<string>('HRV_RESPONSE_TYPE') || '',
       nonce: this.config.get<string>('HRV_NONCE') || '',
     };
+  }
+
+  private sessionKey(orgid: string): string {
+    return `${REDIS_PREFIX}:${orgid}`;
+  }
+
+  private async getInstallSession(
+    orgid: string,
+  ): Promise<RedisInstallData | null> {
+    return this.redisService.get<RedisInstallData>(this.sessionKey(orgid));
+  }
+
+  async resolveAccessToken(orgid: string): Promise<string> {
+    const session = await this.getInstallSession(orgid);
+    if (!session?.access_token) {
+      throw new UnauthorizedException('Session expired, please login again');
+    }
+
+    if (session.status === 'needs_reinstall' || session.status === 'unactive') {
+      this.logger.warn(`App status ${session.status} for orgid: ${orgid}`);
+      throw new UnauthorizedException('App needs reinstall. Please login again.');
+    }
+
+    const now = Date.now();
+    const tokenExpiresAt =
+      typeof session.token_expires_at === 'number'
+        ? session.token_expires_at
+        : null;
+    const needsRefresh =
+      !tokenExpiresAt ||
+      tokenExpiresAt - now < HaravanService.REFRESH_WINDOW_MS;
+
+    if (needsRefresh && session.refresh_token) {
+      const lockKey = `lock:token_refresh:${orgid}`;
+      const lockAcquired = await this.redisService.setNx(lockKey, '1', 30);
+
+      if (lockAcquired) {
+        try {
+          const newToken = await this.refreshToken(orgid, session.refresh_token);
+          if (newToken) return newToken;
+        } catch (refreshError) {
+          this.logger.warn(
+            `Failed to refresh token for orgid ${orgid}: ${getErrorMessage(refreshError)}`,
+          );
+        } finally {
+          await this.redisService.del(lockKey);
+        }
+      } else {
+        const freshData = await this.getInstallSession(orgid);
+        const freshExpiry =
+          typeof freshData?.token_expires_at === 'number'
+            ? freshData.token_expires_at
+            : null;
+        if (
+          freshData?.access_token &&
+          (!freshExpiry || freshExpiry > Date.now())
+        ) {
+          return freshData.access_token;
+        }
+      }
+    }
+
+    if (tokenExpiresAt && tokenExpiresAt <= now) {
+      throw new UnauthorizedException('Session expired, please login again');
+    }
+
+    return session.access_token;
   }
 
   // ─── HMAC Verification (Haravan Admin app launch) ───
@@ -161,9 +231,7 @@ export class HaravanService {
       return { valid: false, reason: 'Timestamp expired' };
     }
 
-    const appData = await this.redisService.get<RedisInstallData>(
-      `${REDIS_PREFIX}:${orgid}`,
-    );
+    const appData = await this.getInstallSession(orgid);
 
     if (!appData || !appData.access_token) {
       this.logger.log(`HMAC valid but app not installed for orgid: ${orgid}`);
@@ -193,28 +261,28 @@ export class HaravanService {
 
   private buildUrlInstall(): string {
     const c = this.getHaravanConfig();
-    return (
-      `${c.urlAuthorize}` +
-      `?response_type=${c.responseType}` +
-      `&scope=${c.scopeInstall}` +
-      `&client_id=${c.clientId}` +
-      `&redirect_uri=${c.installCallbackUrl}` +
-      `&response_mode=query` +
-      `&nonce=${c.nonce}`
-    );
+    const params = new URLSearchParams({
+      response_type: c.responseType,
+      scope: c.scopeInstall,
+      client_id: c.clientId,
+      redirect_uri: c.installCallbackUrl,
+      response_mode: 'query',
+      nonce: c.nonce,
+    });
+    return `${c.urlAuthorize}?${params.toString()}`;
   }
 
   private buildUrlLogin(): string {
     const c = this.getHaravanConfig();
-    return (
-      `${c.urlAuthorize}` +
-      `?response_type=${c.responseType}` +
-      `&scope=${c.scopeLogin}` +
-      `&client_id=${c.clientId}` +
-      `&redirect_uri=${c.loginCallbackUrl}` +
-      `&response_mode=query` +
-      `&nonce=${c.nonce}`
-    );
+    const params = new URLSearchParams({
+      response_type: c.responseType,
+      scope: c.scopeLogin,
+      client_id: c.clientId,
+      redirect_uri: c.loginCallbackUrl,
+      response_mode: 'query',
+      nonce: c.nonce,
+    });
+    return `${c.urlAuthorize}?${params.toString()}`;
   }
 
   // ─── Login Flow ───
@@ -233,7 +301,7 @@ export class HaravanService {
       return this.buildUrlLogin();
     }
 
-    const cleanOrgid = rawOrgid.replace(/['"]+/g, '');
+    const cleanOrgid = rawOrgid.replace(/[^a-zA-Z0-9_-]/g, '');
     try {
       const appData = await this.redisService.get<RedisInstallData>(
         `${REDIS_PREFIX}:${cleanOrgid}`,
@@ -301,15 +369,13 @@ export class HaravanService {
       if (!orgid) throw new BadRequestException('Missing orgid in id_token');
       this.logger.log(`Login callback orgid: ${orgid}`);
 
-      const exists = await this.redisService.has(`${REDIS_PREFIX}:${orgid}`);
+      const exists = await this.redisService.has(this.sessionKey(orgid));
       const acceptHeader =
         typeof req.headers?.accept === 'string' ? req.headers.accept : '';
 
       if (exists) {
         // Refresh token if available
-        const appData = await this.redisService.get<RedisInstallData>(
-          `${REDIS_PREFIX}:${orgid}`,
-        );
+        const appData = await this.getInstallSession(orgid);
         if (appData?.refresh_token) {
           try {
             await this.refreshToken(orgid, appData.refresh_token);
@@ -389,9 +455,7 @@ export class HaravanService {
       if (!orgid) throw new BadRequestException('Missing orgid in id_token');
       this.logger.log(`Install orgid: ${orgid} orgsub: ${orgsub}`);
 
-      const existingApp = await this.redisService.get<RedisInstallData>(
-        `${REDIS_PREFIX}:${orgid}`,
-      );
+      const existingApp = await this.getInstallSession(orgid);
 
       const tokenExpiresAt = Date.now() + expires_in * 1000;
 
@@ -405,18 +469,28 @@ export class HaravanService {
         expires_at: existingApp
           ? existingApp.expires_at
           : Date.now() + 30 * 24 * 60 * 60 * 1000, // 30 days trial
+        installed_at: existingApp?.installed_at || Date.now(),
       };
 
       await this.redisService.set(
-        `${REDIS_PREFIX}:${orgid}`,
+        this.sessionKey(orgid),
         tokenData,
-        30 * 24 * 60 * 60,
+        HaravanService.SESSION_TTL_SECONDS,
       );
 
       this.logger.log(`App installed for orgid: ${orgid}`);
+
+      // Write storefront config metafield (for Liquid snippets)
+      this.writeStorefrontConfig(access_token, orgid).catch((e) =>
+        this.logger.warn(
+          `Failed to write storefront config: ${getErrorMessage(e)}`,
+        ),
+      );
+
       res.redirect(`${c.frontEndUrl}?orgid=${orgid}`);
     } catch (error) {
       this.logger.error(`Install error: ${getErrorMessage(error)}`);
+      res.redirect(`${c.frontEndUrl}/install/login?error=install_failed`);
     }
     return `Install status for code ${code}`;
   }
@@ -455,28 +529,26 @@ export class HaravanService {
       }
       const tokenExpiresAt = Date.now() + expires_in * 1000;
 
-      const existsApp = await this.redisService.get<RedisInstallData>(
-        `${REDIS_PREFIX}:${orgid}`,
-      );
+      const existsApp = await this.getInstallSession(orgid);
 
       if (existsApp) {
         existsApp.access_token = access_token;
         existsApp.refresh_token = refresh_token || existsApp.refresh_token;
         existsApp.token_expires_at = tokenExpiresAt;
         await this.redisService.set(
-          `${REDIS_PREFIX}:${orgid}`,
+          this.sessionKey(orgid),
           existsApp,
-          30 * 24 * 60 * 60,
+          HaravanService.SESSION_TTL_SECONDS,
         );
       } else {
         await this.redisService.set(
-          `${REDIS_PREFIX}:${orgid}`,
+          this.sessionKey(orgid),
           {
             access_token,
             refresh_token: refresh_token || undefined,
             token_expires_at: tokenExpiresAt,
           },
-          30 * 24 * 60 * 60,
+          HaravanService.SESSION_TTL_SECONDS,
         );
       }
 
@@ -488,5 +560,56 @@ export class HaravanService {
       this.logger.error(`Token refresh error: ${getErrorMessage(error)}`);
       throw error;
     }
+  }
+
+  // ─── Storefront Config Metafield ───
+
+  /**
+   * Write f1genz.config shop metafield with apiUrl and orgid.
+   * Liquid snippets read: shop.metafields.f1genz.config.value.apiUrl
+   */
+  private async writeStorefrontConfig(
+    token: string,
+    orgid: string,
+  ): Promise<void> {
+    const apiUrl = this.config.get<string>('API_URL') || '';
+    if (!apiUrl) {
+      this.logger.warn('API_URL not set — skipping storefront config write');
+      return;
+    }
+
+    const configValue = JSON.stringify({ apiUrl, orgid });
+    const MF_NS = 'f1genz';
+    const MF_KEY = 'config';
+
+    // Check if metafield already exists
+    const metafields = await this.haravanAPI.getMetafields(
+      token,
+      'shop',
+      MF_NS,
+      '',
+    );
+    const existing = metafields
+      .filter((m) => m.namespace === MF_NS)
+      .find((m) => m.key === MF_KEY);
+
+    if (existing?.id) {
+      await this.haravanAPI.updateMetafield(token, {
+        metafieldid: String(existing.id),
+        value: configValue,
+        value_type: 'json',
+      });
+    } else {
+      await this.haravanAPI.createMetafield(token, {
+        type: 'shop',
+        objectid: '',
+        namespace: MF_NS,
+        key: MF_KEY,
+        value: configValue,
+        value_type: 'json',
+      });
+    }
+
+    this.logger.log(`Storefront config metafield written for orgid: ${orgid}`);
   }
 }

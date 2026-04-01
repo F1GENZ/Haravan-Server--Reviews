@@ -20,12 +20,36 @@ export class RedisService implements OnModuleDestroy {
     return JSON.parse(val) as T;
   }
 
-  async getKeys(pattern: string): Promise<string[]> {
-    return await this.client.keys(pattern);
+  /** Cursor-based SCAN — non-blocking alternative to KEYS for large keyspaces */
+  async scanKeys(pattern: string, batchSize = 100): Promise<string[]> {
+    const results: string[] = [];
+    let cursor = '0';
+    do {
+      const [nextCursor, keys] = await this.client.scan(
+        cursor,
+        'MATCH',
+        pattern,
+        'COUNT',
+        batchSize,
+      );
+      cursor = nextCursor;
+      results.push(...keys);
+    } while (cursor !== '0');
+    return results;
   }
 
   async del(key: string): Promise<number> {
     return await this.client.del(key);
+  }
+
+  /** SET key value EX ttl NX — returns true if lock acquired, false if already held */
+  async setNx(
+    key: string,
+    value: string,
+    ttlSeconds: number,
+  ): Promise<boolean> {
+    const result = await this.client.set(key, value, 'EX', ttlSeconds, 'NX');
+    return result === 'OK';
   }
 
   async has(key: string): Promise<boolean> {

@@ -26,9 +26,13 @@ export class HaravanCronService {
   @Cron(CronExpression.EVERY_12_HOURS)
   async handleCron() {
     this.logger.log('Running token refresh cron...');
-    const keys = await this.redisService.getKeys(
-      'haravan:multipage:app_install:*',
-    );
+    let keys: string[];
+    try {
+      keys = await this.redisService.scanKeys('haravan:reviews:app_install:*');
+    } catch (err) {
+      this.logger.error(`Cron failed to fetch keys: ${getErrorMessage(err)}`);
+      return;
+    }
 
     for (const key of keys) {
       const appData = await this.redisService.get<AppInstallData>(key);
