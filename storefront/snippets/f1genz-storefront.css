@@ -1,20 +1,20 @@
 :host {
-  --f1g-accent: #f59e0b;
-  --f1g-star-color: #f59e0b;
-  --f1g-star-empty: #b3bcc5;
-  --f1g-text: #1a1a1a;
-  --f1g-text-muted: #6b7280;
-  --f1g-bg: #ffffff;
-  --f1g-bg-alt: #f8fafc;
-  --f1g-border: #e5e7eb;
-  --f1g-radius: 12px;
-  --f1g-radius-sm: 8px;
-  --f1g-radius-xs: 6px;
-  --f1g-verified: #01ab56;
-  --f1g-reply-bg: #f0f5ff;
-  --f1g-reply-border: #1677ff;
+  --f1genzapp-review-accent: #f59e0b;
+  --f1genzapp-review-star-color: #f59e0b;
+  --f1genzapp-review-star-empty: #b3bcc5;
+  --f1genzapp-review-text: #1a1a1a;
+  --f1genzapp-review-text-muted: #6b7280;
+  --f1genzapp-review-bg: #ffffff;
+  --f1genzapp-review-bg-alt: #f8fafc;
+  --f1genzapp-review-border: #e5e7eb;
+  --f1genzapp-review-radius: 12px;
+  --f1genzapp-review-radius-sm: 8px;
+  --f1genzapp-review-radius-xs: 6px;
+  --f1genzapp-review-verified: #01ab56;
+  --f1genzapp-review-reply-bg: #f0f5ff;
+  --f1genzapp-review-reply-border: #1677ff;
   display: block;
-  color: var(--f1g-text);
+  color: var(--f1genzapp-review-text);
   line-height: 1.55;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -24,51 +24,51 @@
   box-sizing: border-box;
 }
 
-.f1g-preview {
+.f1genzapp-review-preview {
   margin: 20px 0;
 }
 
-.f1g-feedback-stack {
+.f1genzapp-review-feedback-stack {
   display: grid;
   gap: 2rem;
 }
 
-.f1g-placeholder {
+.f1genzapp-review-placeholder {
   padding: 1.5rem;
-  color: var(--f1g-text-muted);
+  color: var(--f1genzapp-review-text-muted);
   text-align: center;
   font-size: 0.9rem;
 }
 
-.f1g-title {
+.f1genzapp-review-title {
   margin: 0 0 1rem;
-  color: var(--f1g-text);
+  color: var(--f1genzapp-review-text);
   font-size: 1.25rem;
   font-weight: 700;
   letter-spacing: -0.01em;
 }
 
-.f1g-section {
+.f1genzapp-review-section {
   margin-bottom: 1.5rem;
 }
 
-.f1g-summary {
+.f1genzapp-review-summary {
   display: flex;
   gap: 2rem;
   align-items: flex-start;
   padding: 1.25rem;
-  border: 1px solid var(--f1g-border);
-  border-radius: var(--f1g-radius);
-  background: var(--f1g-bg-alt);
+  border: 1px solid var(--f1genzapp-review-border);
+  border-radius: var(--f1genzapp-review-radius);
+  background: var(--f1genzapp-review-bg-alt);
 }
 
-.f1g-summary__score {
+.f1genzapp-review-summary__score {
   min-width: 100px;
   flex-shrink: 0;
   text-align: center;
 }
 
-.f1g-summary__avg {
+.f1genzapp-review-summary__avg {
   display: block;
   font-size: 3rem;
   font-weight: 800;
@@ -76,20 +76,20 @@
   letter-spacing: -0.03em;
 }
 
-.f1g-summary__stars {
+.f1genzapp-review-summary__stars {
   display: flex;
   justify-content: center;
   gap: 2px;
   margin: 0.4rem 0 0.3rem;
 }
 
-.f1g-summary__count {
+.f1genzapp-review-summary__count {
   font-size: 0.75rem;
-  color: var(--f1g-text-muted);
+  color: var(--f1genzapp-review-text-muted);
   font-weight: 500;
 }
 
-.f1g-summary__bars {
+.f1genzapp-review-summary__bars {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -97,7 +97,7 @@
   padding-top: 6px;
 }
 
-.f1g-bar-row {
+.f1genzapp-review-bar-row {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -109,49 +109,49 @@
   font: inherit;
 }
 
-.f1g-bar-row__label {
+.f1genzapp-review-bar-row__label {
   min-width: 28px;
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
   gap: 1px;
-  color: var(--f1g-text-muted);
+  color: var(--f1genzapp-review-text-muted);
   font-size: 0.75rem;
   font-weight: 600;
 }
 
-.f1g-bar-row__track {
+.f1genzapp-review-bar-row__track {
   flex: 1;
   height: 8px;
   overflow: hidden;
-  border-radius: var(--f1g-radius-xs);
-  background: var(--f1g-border);
+  border-radius: var(--f1genzapp-review-radius-xs);
+  background: var(--f1genzapp-review-border);
 }
 
-.f1g-bar-row__fill {
+.f1genzapp-review-bar-row__fill {
   display: block;
   height: 100%;
-  border-radius: var(--f1g-radius-xs);
-  background: var(--f1g-star-color);
+  border-radius: var(--f1genzapp-review-radius-xs);
+  background: var(--f1genzapp-review-star-color);
 }
 
-.f1g-bar-row__count {
+.f1genzapp-review-bar-row__count {
   width: 22px;
-  color: var(--f1g-text-muted);
+  color: var(--f1genzapp-review-text-muted);
   font-size: 0.75rem;
   font-weight: 500;
   text-align: left;
 }
 
-.f1g-btn,
-.f1g-btn--outline,
-.f1g-btn--write,
-.f1g-btn--ask {
+.f1genzapp-review-btn,
+.f1genzapp-review-btn--outline,
+.f1genzapp-review-btn--write,
+.f1genzapp-review-btn--ask {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  border-radius: var(--f1g-radius-sm);
+  border-radius: var(--f1genzapp-review-radius-sm);
   font-family: inherit;
   font-weight: 600;
   cursor: pointer;
@@ -159,39 +159,39 @@
   white-space: nowrap;
 }
 
-.f1g-btn,
-.f1g-btn--write,
-.f1g-btn--ask {
+.f1genzapp-review-btn,
+.f1genzapp-review-btn--write,
+.f1genzapp-review-btn--ask {
   border: none;
-  background: var(--f1g-accent);
+  background: var(--f1genzapp-review-accent);
   color: #fff;
 }
 
-.f1g-btn {
+.f1genzapp-review-btn {
   padding: 0.7rem 1.4rem;
   font-size: 0.9rem;
 }
 
-.f1g-btn:hover:not(:disabled),
-.f1g-btn--write:hover:not(:disabled),
-.f1g-btn--ask:hover:not(:disabled) {
+.f1genzapp-review-btn:hover:not(:disabled),
+.f1genzapp-review-btn--write:hover:not(:disabled),
+.f1genzapp-review-btn--ask:hover:not(:disabled) {
   filter: brightness(0.9);
 }
 
-.f1g-btn:disabled,
-.f1g-btn--write:disabled,
-.f1g-btn--ask:disabled {
+.f1genzapp-review-btn:disabled,
+.f1genzapp-review-btn--write:disabled,
+.f1genzapp-review-btn--ask:disabled {
   opacity: 0.65;
   cursor: not-allowed;
 }
 
-.f1g-btn--write,
-.f1g-btn--ask {
+.f1genzapp-review-btn--write,
+.f1genzapp-review-btn--ask {
   padding: 0.65rem 1.25rem;
   font-size: 0.85rem;
 }
 
-.f1g-btn--write {
+.f1genzapp-review-btn--write {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -204,28 +204,28 @@
   white-space: nowrap;
 }
 
-.f1g-btn--ask {
+.f1genzapp-review-btn--ask {
   width: auto;
   margin: 0;
 }
 
-.f1g-btn--outline {
+.f1genzapp-review-btn--outline {
   width: 100%;
   margin-top: 1rem;
   padding: 0.6rem;
-  border: 1px solid var(--f1g-border);
+  border: 1px solid var(--f1genzapp-review-border);
   background: transparent;
-  color: var(--f1g-text);
+  color: var(--f1genzapp-review-text);
   font-size: 0.8rem;
 }
 
-.f1g-btn--outline:hover {
-  background: var(--f1g-bg-alt);
-  border-color: var(--f1g-accent);
-  color: var(--f1g-accent);
+.f1genzapp-review-btn--outline:hover {
+  background: var(--f1genzapp-review-bg-alt);
+  border-color: var(--f1genzapp-review-accent);
+  color: var(--f1genzapp-review-accent);
 }
 
-.f1g-pagination {
+.f1genzapp-review-pagination {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -234,14 +234,14 @@
   margin-top: 1rem;
 }
 
-.f1g-pagination__btn {
+.f1genzapp-review-pagination__btn {
   min-width: 32px;
   min-height: 32px;
   padding: 0 0.75rem;
-  border: 1px solid var(--f1g-border);
-  border-radius: var(--f1g-radius-sm);
-  background: var(--f1g-bg);
-  color: var(--f1g-text);
+  border: 1px solid var(--f1genzapp-review-border);
+  border-radius: var(--f1genzapp-review-radius-sm);
+  background: var(--f1genzapp-review-bg);
+  color: var(--f1genzapp-review-text);
   font: inherit;
   font-size: 0.75rem;
   font-weight: 500;
@@ -250,29 +250,29 @@
   transition: all 0.2s;
 }
 
-.f1g-pagination__btn:hover:not(:disabled) {
-  border-color: var(--f1g-accent);
-  color: var(--f1g-accent);
+.f1genzapp-review-pagination__btn:hover:not(:disabled) {
+  border-color: var(--f1genzapp-review-accent);
+  color: var(--f1genzapp-review-accent);
 }
 
-.f1g-pagination__btn:disabled {
+.f1genzapp-review-pagination__btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }
 
-.f1g-pagination__btn--active {
-  border-color: var(--f1g-accent);
-  background: var(--f1g-accent);
+.f1genzapp-review-pagination__btn--active {
+  border-color: var(--f1genzapp-review-accent);
+  background: var(--f1genzapp-review-accent);
   color: #fff;
 }
 
-.f1g-pagination__ellipsis {
-  color: var(--f1g-text-muted);
+.f1genzapp-review-pagination__ellipsis {
+  color: var(--f1genzapp-review-text-muted);
   font-size: 0.75rem;
   padding: 0 0.1rem;
 }
 
-.f1g-controls {
+.f1genzapp-review-controls {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -280,10 +280,10 @@
   flex-wrap: wrap;
   margin-bottom: 1rem;
   padding-bottom: 0.75rem;
-  border-bottom: 1px solid var(--f1g-border);
+  border-bottom: 1px solid var(--f1genzapp-review-border);
 }
 
-.f1g-controls__filters {
+.f1genzapp-review-controls__filters {
   display: flex;
   gap: 5px;
   flex-wrap: wrap;
@@ -291,7 +291,7 @@
   min-width: 0;
 }
 
-.f1g-controls__actions {
+.f1genzapp-review-controls__actions {
   margin-left: auto;
   display: flex;
   align-items: center;
@@ -300,16 +300,16 @@
   flex-wrap: wrap;
 }
 
-.f1g-pill {
+.f1genzapp-review-pill {
   display: inline-flex;
   align-items: center;
   gap: 3px;
   min-height: 32px;
   padding: 0 0.75rem;
-  border: 1px solid var(--f1g-border);
-  border-radius: var(--f1g-radius-sm);
-  background: var(--f1g-bg);
-  color: var(--f1g-text-muted);
+  border: 1px solid var(--f1genzapp-review-border);
+  border-radius: var(--f1genzapp-review-radius-sm);
+  background: var(--f1genzapp-review-bg);
+  color: var(--f1genzapp-review-text-muted);
   font: inherit;
   font-size: 0.75rem;
   font-weight: 500;
@@ -317,26 +317,26 @@
   cursor: pointer;
 }
 
-.f1g-pill--active {
-  border-color: var(--f1g-accent);
-  background: var(--f1g-accent);
+.f1genzapp-review-pill--active {
+  border-color: var(--f1genzapp-review-accent);
+  background: var(--f1genzapp-review-accent);
   color: #fff;
 }
 
-.f1g-select,
-.f1g-input,
-.f1g-textarea {
+.f1genzapp-review-select,
+.f1genzapp-review-input,
+.f1genzapp-review-textarea {
   width: 100%;
   padding: 0.55rem 0.7rem;
-  border: 1px solid var(--f1g-border);
-  border-radius: var(--f1g-radius-xs);
-  background: var(--f1g-bg);
-  color: var(--f1g-text);
+  border: 1px solid var(--f1genzapp-review-border);
+  border-radius: var(--f1genzapp-review-radius-xs);
+  background: var(--f1genzapp-review-bg);
+  color: var(--f1genzapp-review-text);
   font: inherit;
   outline: none;
 }
 
-.f1g-controls .f1g-select {
+.f1genzapp-review-controls .f1genzapp-review-select {
   width: auto;
   min-width: 140px;
   min-height: 32px;
@@ -346,54 +346,54 @@
   flex: 0 0 auto;
 }
 
-.f1g-select:focus,
-.f1g-input:focus,
-.f1g-textarea:focus {
-  border-color: var(--f1g-accent);
+.f1genzapp-review-select:focus,
+.f1genzapp-review-input:focus,
+.f1genzapp-review-textarea:focus {
+  border-color: var(--f1genzapp-review-accent);
 }
 
-.f1g-textarea {
+.f1genzapp-review-textarea {
   min-height: 90px;
   resize: vertical;
 }
 
-.f1g-card {
+.f1genzapp-review-card {
   padding: 1rem 0;
-  border-bottom: 1px solid var(--f1g-border);
+  border-bottom: 1px solid var(--f1genzapp-review-border);
 }
 
-.f1g-card__main {
+.f1genzapp-review-card__main {
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
   min-width: 0;
 }
 
-.f1g-card__footer {
+.f1genzapp-review-card__footer {
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
   margin-top: 0.75rem;
 }
 
-.f1g-card:last-child,
-.f1g-qna-card:last-child {
+.f1genzapp-review-card:last-child,
+.f1genzapp-review-qna-card:last-child {
   border-bottom: none;
 }
 
-.f1g-card__top,
-.f1g-qna-card__top {
+.f1genzapp-review-card__top,
+.f1genzapp-review-qna-card__top {
   display: flex;
   gap: 0.6rem;
   align-items: flex-start;
 }
 
-.f1g-card__top {
+.f1genzapp-review-card__top {
   margin-bottom: 0.5rem;
 }
 
-.f1g-card__avatar,
-.f1g-qna-card__avatar {
+.f1genzapp-review-card__avatar,
+.f1genzapp-review-qna-card__avatar {
   flex-shrink: 0;
   border-radius: 999px;
   display: flex;
@@ -403,156 +403,156 @@
   font-weight: 700;
 }
 
-.f1g-card__avatar {
+.f1genzapp-review-card__avatar {
   width: 36px;
   height: 36px;
   font-size: 0.75rem;
 }
 
-.f1g-qna-card__avatar {
+.f1genzapp-review-qna-card__avatar {
   width: 32px;
   height: 32px;
   font-size: 0.7rem;
 }
 
-.f1g-card__meta,
-.f1g-qna-card__meta {
+.f1genzapp-review-card__meta,
+.f1genzapp-review-qna-card__meta {
   flex: 1;
   min-width: 0;
 }
 
-.f1g-card__name-row {
+.f1genzapp-review-card__name-row {
   display: flex;
   align-items: center;
   gap: 0.4rem;
   flex-wrap: wrap;
 }
 
-.f1g-card__author,
-.f1g-qna-card__author {
-  color: var(--f1g-text);
+.f1genzapp-review-card__author,
+.f1genzapp-review-qna-card__author {
+  color: var(--f1genzapp-review-text);
   font-weight: 600;
 }
 
-.f1g-card__author {
+.f1genzapp-review-card__author {
   font-size: 0.875rem;
 }
 
-.f1g-qna-card__author {
+.f1genzapp-review-qna-card__author {
   font-size: 0.8rem;
 }
 
-.f1g-card__verified {
+.f1genzapp-review-card__verified {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  color: var(--f1g-verified);
+  color: var(--f1genzapp-review-verified);
   font-size: 0.6875rem;
   font-weight: 600;
 }
 
-.f1g-card__date,
-.f1g-qna-card__date {
-  color: var(--f1g-text-muted);
+.f1genzapp-review-card__date,
+.f1genzapp-review-qna-card__date {
+  color: var(--f1genzapp-review-text-muted);
   font-size: 0.6875rem;
 }
 
-.f1g-card__date {
+.f1genzapp-review-card__date {
   margin-left: auto;
   white-space: nowrap;
 }
 
-.f1g-qna-card__date {
+.f1genzapp-review-qna-card__date {
   margin-left: 6px;
   font-size: 0.625rem;
 }
 
-.f1g-card__contact {
+.f1genzapp-review-card__contact {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
   margin-top: 4px;
-  color: var(--f1g-text-muted);
+  color: var(--f1genzapp-review-text-muted);
   font-size: 0.6875rem;
 }
 
-.f1g-card__contact-item {
+.f1genzapp-review-card__contact-item {
   display: inline-flex;
   align-items: center;
   gap: 3px;
 }
 
-.f1g-card__stars {
+.f1genzapp-review-card__stars {
   display: flex;
   gap: 1px;
   margin-top: 2px;
 }
 
-.f1g-card__title {
-  color: var(--f1g-text);
+.f1genzapp-review-card__title {
+  color: var(--f1genzapp-review-text);
   font-size: 0.9rem;
   font-weight: 700;
 }
 
-.f1g-card__content,
-.f1g-qna-card__question {
-  color: var(--f1g-text);
+.f1genzapp-review-card__content,
+.f1genzapp-review-qna-card__question {
+  color: var(--f1genzapp-review-text);
   font-size: 0.85rem;
   line-height: 1.6;
   word-break: break-word;
 }
 
-.f1g-qna-card__question {
+.f1genzapp-review-qna-card__question {
   margin-top: 0.3rem;
   font-weight: 500;
 }
 
-.f1g-card__media {
+.f1genzapp-review-card__media {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
 }
 
-.f1g-card__media-item {
+.f1genzapp-review-card__media-item {
   width: 64px;
   height: 64px;
   overflow: hidden;
   padding: 0;
-  border: 1px solid var(--f1g-border);
-  border-radius: var(--f1g-radius-xs);
-  background: var(--f1g-bg);
+  border: 1px solid var(--f1genzapp-review-border);
+  border-radius: var(--f1genzapp-review-radius-xs);
+  background: var(--f1genzapp-review-bg);
   cursor: zoom-in;
 }
 
-.f1g-card__media-item img,
-.f1g-card__media-item video,
-.f1g-file-thumb img,
-.f1g-file-thumb video {
+.f1genzapp-review-card__media-item img,
+.f1genzapp-review-card__media-item video,
+.f1genzapp-review-file-thumb img,
+.f1genzapp-review-file-thumb video {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
 }
 
-.f1g-card__reply,
-.f1g-qna-card__answer {
+.f1genzapp-review-card__reply,
+.f1genzapp-review-qna-card__answer {
   padding: 0.75rem 0.875rem;
-  border-radius: 0 var(--f1g-radius-sm) var(--f1g-radius-sm) 0;
+  border-radius: 0 var(--f1genzapp-review-radius-sm) var(--f1genzapp-review-radius-sm) 0;
 }
 
-.f1g-card__reply {
-  border-left: 3px solid var(--f1g-reply-border);
-  background: var(--f1g-reply-bg);
+.f1genzapp-review-card__reply {
+  border-left: 3px solid var(--f1genzapp-review-reply-border);
+  background: var(--f1genzapp-review-reply-bg);
 }
 
-.f1g-qna-card__answer {
+.f1genzapp-review-qna-card__answer {
   margin-left: 2.5rem;
-  border-left: 3px solid var(--f1g-accent);
-  background: var(--f1g-bg-alt);
+  border-left: 3px solid var(--f1genzapp-review-accent);
+  background: var(--f1genzapp-review-bg-alt);
 }
 
-.f1g-card__reply-badge,
-.f1g-qna-card__answer-badge {
+.f1genzapp-review-card__reply-badge,
+.f1genzapp-review-qna-card__answer-badge {
   margin-bottom: 0.2rem;
   font-size: 0.625rem;
   font-weight: 700;
@@ -560,122 +560,122 @@
   letter-spacing: 0.04em;
 }
 
-.f1g-card__reply-badge {
-  color: var(--f1g-reply-border);
+.f1genzapp-review-card__reply-badge {
+  color: var(--f1genzapp-review-reply-border);
 }
 
-.f1g-qna-card__answer-badge {
-  color: var(--f1g-accent);
+.f1genzapp-review-qna-card__answer-badge {
+  color: var(--f1genzapp-review-accent);
 }
 
-.f1g-card__reply-content,
-.f1g-qna-card__answer-text {
-  color: var(--f1g-text);
+.f1genzapp-review-card__reply-content,
+.f1genzapp-review-qna-card__answer-text {
+  color: var(--f1genzapp-review-text);
   font-size: 0.8rem;
   line-height: 1.5;
 }
 
-.f1g-qna-card {
+.f1genzapp-review-qna-card {
   padding: 1rem 0;
-  border-bottom: 1px solid var(--f1g-border);
+  border-bottom: 1px solid var(--f1genzapp-review-border);
 }
 
-.f1g-qna-card__pending {
+.f1genzapp-review-qna-card__pending {
   margin-top: 0.4rem;
   margin-left: 2.5rem;
-  color: var(--f1g-text-muted);
+  color: var(--f1genzapp-review-text-muted);
   font-size: 0.7rem;
   font-style: italic;
 }
 
-.f1g-grid {
+.f1genzapp-review-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 0.75rem;
 }
 
-.f1g-masonry {
+.f1genzapp-review-masonry {
   display: grid;
-  grid-template-columns: repeat(var(--f1g-masonry-columns, 4), minmax(0, 1fr));
+  grid-template-columns: repeat(var(--f1genzapp-review-masonry-columns, 4), minmax(0, 1fr));
   gap: 0.75rem;
 }
 
-.f1g-masonry__column {
+.f1genzapp-review-masonry__column {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
 }
 
-.f1g-grid .f1g-card,
-.f1g-masonry .f1g-card,
-.f1g-qna-grid .f1g-qna-card {
+.f1genzapp-review-grid .f1genzapp-review-card,
+.f1genzapp-review-masonry .f1genzapp-review-card,
+.f1genzapp-review-qna-grid .f1genzapp-review-qna-card {
   padding: 0.75rem;
-  border: 1px solid var(--f1g-border);
-  border-radius: var(--f1g-radius-sm);
+  border: 1px solid var(--f1genzapp-review-border);
+  border-radius: var(--f1genzapp-review-radius-sm);
 }
 
-.f1g-grid .f1g-card {
+.f1genzapp-review-grid .f1genzapp-review-card {
   height: 100%;
   display: flex;
   flex-direction: column;
 }
 
-.f1g-masonry .f1g-card {
+.f1genzapp-review-masonry .f1genzapp-review-card {
   display: flex;
   width: 100%;
   flex-direction: column;
   margin: 0;
 }
 
-.f1g-grid .f1g-card__main {
+.f1genzapp-review-grid .f1genzapp-review-card__main {
   flex: 1 1 auto;
 }
 
-.f1g-grid .f1g-card__top {
+.f1genzapp-review-grid .f1genzapp-review-card__top {
   margin-bottom: 0.25rem;
 }
 
-.f1g-grid .f1g-card__contact {
+.f1genzapp-review-grid .f1genzapp-review-card__contact {
   gap: 8px;
 }
 
-.f1g-grid .f1g-card__content {
+.f1genzapp-review-grid .f1genzapp-review-card__content {
   display: -webkit-box;
   -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
-.f1g-grid .f1g-card__footer {
+.f1genzapp-review-grid .f1genzapp-review-card__footer {
   margin-top: auto;
   padding-top: 0.75rem;
-  border-top: 1px solid var(--f1g-border);
+  border-top: 1px solid var(--f1genzapp-review-border);
 }
 
-.f1g-grid .f1g-card__media {
+.f1genzapp-review-grid .f1genzapp-review-card__media {
   gap: 8px;
 }
 
-.f1g-grid .f1g-card__media-item {
+.f1genzapp-review-grid .f1genzapp-review-card__media-item {
   width: 56px;
   height: 56px;
 }
 
-.f1g-masonry .f1g-card__footer {
+.f1genzapp-review-masonry .f1genzapp-review-card__footer {
   padding-top: 0.75rem;
-  border-top: 1px solid var(--f1g-border);
+  border-top: 1px solid var(--f1genzapp-review-border);
 }
 
-.f1g-masonry .f1g-card__media {
+.f1genzapp-review-masonry .f1genzapp-review-card__media {
   gap: 8px;
 }
 
-.f1g-masonry .f1g-card__media-item {
+.f1genzapp-review-masonry .f1genzapp-review-card__media-item {
   width: 56px;
   height: 56px;
 }
 
-.f1g-qna-header {
+.f1genzapp-review-qna-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -683,14 +683,14 @@
   margin-bottom: 0.875rem;
 }
 
-.f1g-qna-header h3 {
+.f1genzapp-review-qna-header h3 {
   margin: 0;
-  color: var(--f1g-text);
+  color: var(--f1genzapp-review-text);
   font-size: 0.95rem;
   font-weight: 700;
 }
 
-.f1g-qna-header__actions {
+.f1genzapp-review-qna-header__actions {
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
@@ -699,28 +699,28 @@
   margin-left: auto;
 }
 
-.f1g-qna-grid {
+.f1genzapp-review-qna-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.75rem;
 }
 
-.f1g-qna-grid .f1g-qna-card__answer,
-.f1g-qna-grid .f1g-qna-card__pending {
+.f1genzapp-review-qna-grid .f1genzapp-review-qna-card__answer,
+.f1genzapp-review-qna-grid .f1genzapp-review-qna-card__pending {
   margin-left: 0;
 }
 
-.f1g-alert {
+.f1genzapp-review-alert {
   margin-bottom: 1rem;
   padding: 0.65rem 0.9rem;
   border: 1px solid #fecaca;
-  border-radius: var(--f1g-radius-xs);
+  border-radius: var(--f1genzapp-review-radius-xs);
   background: #fef2f2;
   color: #dc2626;
   font-size: 0.84rem;
 }
 
-.f1g-modal-overlay {
+.f1genzapp-review-modal-overlay {
   position: fixed;
   inset: 0;
   z-index: 99999;
@@ -732,20 +732,20 @@
   backdrop-filter: blur(2px);
 }
 
-.f1g-modal-box {
+.f1genzapp-review-modal-box {
   width: 100%;
   max-width: 580px;
   max-height: 90vh;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  border-radius: var(--f1g-radius);
-  background: var(--f1g-bg);
+  border-radius: var(--f1genzapp-review-radius);
+  background: var(--f1genzapp-review-bg);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
 }
 
-.f1g-modal-header,
-.f1g-modal-footer {
+.f1genzapp-review-modal-header,
+.f1genzapp-review-modal-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -753,110 +753,110 @@
   padding: 1rem 1.25rem;
 }
 
-.f1g-modal-header {
-  border-bottom: 1px solid var(--f1g-border);
+.f1genzapp-review-modal-header {
+  border-bottom: 1px solid var(--f1genzapp-review-border);
 }
 
-.f1g-modal-footer {
-  border-top: 1px solid var(--f1g-border);
+.f1genzapp-review-modal-footer {
+  border-top: 1px solid var(--f1genzapp-review-border);
 }
 
-.f1g-modal-footer .f1g-btn,
-.f1g-modal-footer .f1g-btn--outline,
-.f1g-file-wrap .f1g-btn--outline {
+.f1genzapp-review-modal-footer .f1genzapp-review-btn,
+.f1genzapp-review-modal-footer .f1genzapp-review-btn--outline,
+.f1genzapp-review-file-wrap .f1genzapp-review-btn--outline {
   width: auto;
   margin-top: 0;
   padding: 0.7rem 1.4rem;
   font-size: 0.9rem;
 }
 
-.f1g-modal-title {
+.f1genzapp-review-modal-title {
   margin: 0;
   font-size: 1.05rem;
   font-weight: 700;
 }
 
-.f1g-modal-close {
+.f1genzapp-review-modal-close {
   border: none;
   background: transparent;
-  color: var(--f1g-text-muted);
+  color: var(--f1genzapp-review-text-muted);
   font-size: 1.1rem;
   line-height: 1;
   cursor: pointer;
   padding: 4px 8px;
-  border-radius: var(--f1g-radius-xs);
+  border-radius: var(--f1genzapp-review-radius-xs);
 }
 
-.f1g-modal-close:hover {
-  background: var(--f1g-bg-alt);
-  color: var(--f1g-text);
+.f1genzapp-review-modal-close:hover {
+  background: var(--f1genzapp-review-bg-alt);
+  color: var(--f1genzapp-review-text);
 }
 
-.f1g-modal-body {
+.f1genzapp-review-modal-body {
   padding: 1.25rem;
   overflow: auto;
   flex: 1;
 }
 
-.f1g-modal-row {
+.f1genzapp-review-modal-row {
   display: flex;
   gap: 1rem;
   flex-wrap: wrap;
 }
 
-.f1g-form-group {
+.f1genzapp-review-form-group {
   margin-bottom: 1rem;
 }
 
-.f1g-form-label {
+.f1genzapp-review-form-label {
   display: block;
   margin-bottom: 0.35rem;
-  color: var(--f1g-text);
+  color: var(--f1genzapp-review-text);
   font-size: 0.82rem;
   font-weight: 600;
 }
 
-.f1g-modal-stars {
+.f1genzapp-review-modal-stars {
   display: flex;
   gap: 2px;
 }
 
-.f1g-modal-star {
+.f1genzapp-review-modal-star {
   border: none;
   background: transparent;
   padding: 3px;
   cursor: pointer;
 }
 
-.f1g-file-wrap {
+.f1genzapp-review-file-wrap {
   display: flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
 }
 
-.f1g-file-note {
-  color: var(--f1g-text-muted);
+.f1genzapp-review-file-note {
+  color: var(--f1genzapp-review-text-muted);
   font-size: 0.8rem;
 }
 
-.f1g-file-preview {
+.f1genzapp-review-file-preview {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
   margin-top: 10px;
 }
 
-.f1g-file-thumb {
+.f1genzapp-review-file-thumb {
   position: relative;
   width: 64px;
   height: 64px;
   overflow: hidden;
-  border: 1px solid var(--f1g-border);
-  border-radius: var(--f1g-radius-xs);
+  border: 1px solid var(--f1genzapp-review-border);
+  border-radius: var(--f1genzapp-review-radius-xs);
 }
 
-.f1g-file-remove {
+.f1genzapp-review-file-remove {
   position: absolute;
   top: 2px;
   right: 2px;
@@ -870,7 +870,7 @@
   cursor: pointer;
 }
 
-.f1g-lightbox {
+.f1genzapp-review-lightbox {
   position: fixed;
   inset: 0;
   z-index: 100000;
@@ -881,7 +881,7 @@
   background: rgba(0, 0, 0, 0.92);
 }
 
-.f1g-lightbox__inner {
+.f1genzapp-review-lightbox__inner {
   position: relative;
   max-width: 92vw;
   max-height: 88vh;
@@ -890,17 +890,17 @@
   justify-content: center;
 }
 
-.f1g-lightbox__inner img,
-.f1g-lightbox__inner video {
+.f1genzapp-review-lightbox__inner img,
+.f1genzapp-review-lightbox__inner video {
   max-width: 100%;
   max-height: 88vh;
   object-fit: contain;
-  border-radius: var(--f1g-radius-xs);
+  border-radius: var(--f1genzapp-review-radius-xs);
   box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
 }
 
-.f1g-lightbox__close,
-.f1g-lightbox__nav {
+.f1genzapp-review-lightbox__close,
+.f1genzapp-review-lightbox__nav {
   position: absolute;
   border: none;
   border-radius: 999px;
@@ -909,7 +909,7 @@
   cursor: pointer;
 }
 
-.f1g-lightbox__close {
+.f1genzapp-review-lightbox__close {
   top: -40px;
   right: 0;
   width: 34px;
@@ -917,7 +917,7 @@
   font-size: 1rem;
 }
 
-.f1g-lightbox__nav {
+.f1genzapp-review-lightbox__nav {
   top: 50%;
   transform: translateY(-50%);
   width: 40px;
@@ -925,15 +925,15 @@
   font-size: 1.4rem;
 }
 
-.f1g-lightbox__prev {
+.f1genzapp-review-lightbox__prev {
   left: -52px;
 }
 
-.f1g-lightbox__next {
+.f1genzapp-review-lightbox__next {
   right: -52px;
 }
 
-.f1g-lightbox__caption {
+.f1genzapp-review-lightbox__caption {
   position: absolute;
   left: 0;
   right: 0;
@@ -943,68 +943,68 @@
   font-size: 0.82rem;
 }
 
-.f1g-rating-badge {
+.f1genzapp-review-rating-badge {
   display: inline-flex;
   align-items: center;
   gap: 4px;
 }
 
-.f1g-rating-badge__stars {
+.f1genzapp-review-rating-badge__stars {
   display: inline-flex;
   align-items: center;
   gap: 1px;
 }
 
-.f1g-rating-badge__count {
-  color: var(--f1g-text-muted);
+.f1genzapp-review-rating-badge__count {
+  color: var(--f1genzapp-review-text-muted);
   font-size: 0.75rem;
 }
 
 @media (max-width: 600px) {
-  .f1g-summary {
+  .f1genzapp-review-summary {
     flex-direction: column;
     gap: 1rem;
   }
 
-  .f1g-grid,
-  .f1g-qna-grid {
+  .f1genzapp-review-grid,
+  .f1genzapp-review-qna-grid {
     grid-template-columns: 1fr;
   }
 
-  .f1g-masonry {
-    --f1g-masonry-columns: 1;
+  .f1genzapp-review-masonry {
+    --f1genzapp-review-masonry-columns: 1;
   }
 
-  .f1g-modal-footer {
+  .f1genzapp-review-modal-footer {
     flex-wrap: wrap;
   }
 
-  .f1g-btn {
+  .f1genzapp-review-btn {
     width: 100%;
   }
 
-  .f1g-lightbox {
+  .f1genzapp-review-lightbox {
     padding: 1.5rem;
   }
 
-  .f1g-lightbox__nav {
+  .f1genzapp-review-lightbox__nav {
     display: none;
   }
 
-  .f1g-lightbox__close {
+  .f1genzapp-review-lightbox__close {
     top: -44px;
     right: 0;
   }
 }
 
 @media (min-width: 601px) and (max-width: 900px) {
-  .f1g-masonry {
-    --f1g-masonry-columns: 2;
+  .f1genzapp-review-masonry {
+    --f1genzapp-review-masonry-columns: 2;
   }
 }
 
 @media (min-width: 901px) and (max-width: 1200px) {
-  .f1g-masonry {
-    --f1g-masonry-columns: 3;
+  .f1genzapp-review-masonry {
+    --f1genzapp-review-masonry-columns: 3;
   }
 }
