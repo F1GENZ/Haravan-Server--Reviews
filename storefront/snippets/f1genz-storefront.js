@@ -377,10 +377,42 @@
       request.headers['Content-Type'] = 'application/json';
       request.body = JSON.stringify(request.body);
     }
-    return fetch(url, request).then((response) => {
-      if (!response.ok) throw new Error(`API Error ${response.status}`);
-      return response.json();
-    }).then((json) => json.data);
+    return fetch(url, request).then(async (response) => {
+      let payload = null;
+      try {
+        payload = await response.json();
+      } catch {
+        payload = null;
+      }
+
+      if (!response.ok) {
+        let message = '';
+        if (payload && typeof payload === 'object') {
+          const nestedMessage = payload.data && typeof payload.data === 'object'
+            ? payload.data.message
+            : null;
+          if (Array.isArray(payload.message)) {
+            message = payload.message.join(', ');
+          } else if (typeof payload.message === 'string') {
+            message = payload.message;
+          } else if (typeof nestedMessage === 'string') {
+            message = nestedMessage;
+          } else if (typeof payload.error === 'string') {
+            message = payload.error;
+          }
+        }
+        throw new Error(message || `API Error ${response.status}`);
+      }
+
+      if (payload && typeof payload === 'object' && Object.prototype.hasOwnProperty.call(payload, 'data')) {
+        return payload.data;
+      }
+      return payload;
+    });
+  }
+
+  function isValidEmail(value) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
   }
 
   function getWidgetConfig(apiUrl, orgId) {
@@ -1357,6 +1389,11 @@
         this.render();
         return;
       }
+      if (email && !isValidEmail(email)) {
+        this.state.formError = 'Email không đúng định dạng';
+        this.render();
+        return;
+      }
 
       this.state.formSubmitting = true;
       this.state.formError = '';
@@ -1387,9 +1424,11 @@
         this.render();
         await this.reloadData(false);
         window.setTimeout(() => this.closeForm(), 2500);
-      } catch {
+      } catch (error) {
         this.state.formSubmitting = false;
-        this.state.formError = 'Gửi thất bại. Vui lòng thử lại sau.';
+        this.state.formError = error instanceof Error && error.message
+          ? error.message
+          : 'Gửi thất bại. Vui lòng thử lại sau.';
         this.render();
       }
     }
@@ -1924,6 +1963,9 @@
       this.render();
 
       try {
+        if (email && !isValidEmail(email)) {
+          throw new Error('Email không đúng định dạng');
+        }
         const payload = { author, question };
         if (email) payload.email = email;
         await fetchJSON(`${this.apiUrl}/api/public/qna/${this.productId}`, this.orgId, {
@@ -1936,9 +1978,11 @@
         this.render();
         await this.reloadData(false);
         window.setTimeout(() => this.closeForm(), 2500);
-      } catch {
+      } catch (error) {
         this.state.formSubmitting = false;
-        this.state.formError = 'Gửi thất bại. Vui lòng thử lại sau.';
+        this.state.formError = error instanceof Error && error.message
+          ? error.message
+          : 'Gửi thất bại. Vui lòng thử lại sau.';
         this.render();
       }
     }

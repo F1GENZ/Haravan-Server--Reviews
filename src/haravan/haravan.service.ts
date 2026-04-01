@@ -487,7 +487,9 @@ export class HaravanService {
         ),
       );
 
-      res.redirect(`${c.frontEndUrl}?orgid=${orgid}`);
+      res.redirect(
+        `${c.frontEndUrl}/install/login?orgid=${encodeURIComponent(orgid)}&installed=1`,
+      );
     } catch (error) {
       this.logger.error(`Install error: ${getErrorMessage(error)}`);
       res.redirect(`${c.frontEndUrl}/install/login?error=install_failed`);
