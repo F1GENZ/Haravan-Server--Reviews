@@ -1,6 +1,7 @@
 (() => {
   if (window.__f1gStorefrontRuntimeBooted) return;
   window.__f1gStorefrontRuntimeBooted = true;
+  const API_URL = 'https://api-haravan-reviews.f1genz.dev';
 
   const DEFAULT_CONFIG = {
     titleText: 'Đánh giá sản phẩm',
@@ -586,7 +587,7 @@
     }
 
     get apiUrl() {
-      return this.getAttribute('api-url') || '';
+      return API_URL;
     }
 
     get orgId() {
@@ -2095,7 +2096,7 @@
 
   class F1GRatingBadgeElement extends F1GBaseElement {
     static get observedAttributes() {
-      return ['avg-rating', 'review-count', 'api-url', 'orgid'];
+      return ['avg-rating', 'review-count', 'orgid'];
     }
 
     async initialize() {
@@ -2134,10 +2135,9 @@
 
   class F1GReviewsWidgetElement extends HTMLElement {
     connectedCallback() {
-      const apiUrl = this.getAttribute('api-url') || '';
       const orgId = this.getAttribute('orgid') || '';
       const productId = this.getAttribute('product-id') || '';
-      if (!apiUrl || !orgId || !productId) {
+      if (!orgId || !productId) {
         this.innerHTML = '';
         return;
       }
@@ -2146,12 +2146,10 @@
         <div class="f1g-feedback-stack">
           <f1genz-reviews-panel
             product-id="${escapeHTML(productId)}"
-            api-url="${escapeHTML(apiUrl)}"
             orgid="${escapeHTML(orgId)}"
           ></f1genz-reviews-panel>
           <f1genz-qna-panel
             product-id="${escapeHTML(productId)}"
-            api-url="${escapeHTML(apiUrl)}"
             orgid="${escapeHTML(orgId)}"
           ></f1genz-qna-panel>
         </div>
