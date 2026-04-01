@@ -2113,10 +2113,6 @@
     render() {
       const avgRating = Number.parseFloat(this.getAttribute('avg-rating') || '0');
       const reviewCount = Number.parseInt(this.getAttribute('review-count') || '0', 10);
-      if (!reviewCount) {
-        this.renderTemplate(BADGE_STYLES, '');
-        return;
-      }
 
       let stars = '';
       for (let index = 1; index <= 5; index += 1) {
