@@ -83,7 +83,7 @@ async function bootstrap() {
       // Allow Haravan storefront origins (for public widget)
       if (isStorefrontOrigin(origin)) return callback(null, true);
       // In development, allow all
-      if (process.env.NODE_ENV !== 'production') return callback(null, true);
+      if (process.env.NODE_ENV === 'development') return callback(null, true);
       callback(new Error(`CORS blocked: ${origin}`));
     },
     credentials: true,

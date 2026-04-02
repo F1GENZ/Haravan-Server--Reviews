@@ -38,11 +38,10 @@ export class DebugController {
     if (!expected) {
       throw new BadRequestException('Debug endpoints are disabled');
     }
-    if (
-      !password ||
-      password.length !== expected.length ||
-      !crypto.timingSafeEqual(Buffer.from(password), Buffer.from(expected))
-    ) {
+    const HMAC_KEY = 'debug-verify';
+    const a = crypto.createHmac('sha256', HMAC_KEY).update(password ?? '').digest();
+    const b = crypto.createHmac('sha256', HMAC_KEY).update(expected).digest();
+    if (!crypto.timingSafeEqual(a, b)) {
       return { data: { valid: false } };
     }
     return { data: { valid: true } };

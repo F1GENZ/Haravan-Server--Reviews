@@ -4,8 +4,6 @@ import { HaravanAPIService } from '../haravan/haravan.api';
 
 const MF_NAMESPACE = 'f1genz';
 const MF_KEY = 'stats';
-const CACHE_PREFIX = 'shop:stats';
-const CACHE_TTL = 600; // 10 minutes
 const LOCK_TTL = 30;
 
 /* ── Full-name types (readable keys in metafield storage) ── */
@@ -87,10 +85,6 @@ export class StatsService {
     private readonly haravanAPI: HaravanAPIService,
   ) {}
 
-  private cacheKey(orgid: string): string {
-    return `${CACHE_PREFIX}:${orgid}`;
-  }
-
   private lockKey(orgid: string): string {
     return `lock:stats:${orgid}`;
   }
@@ -98,9 +92,6 @@ export class StatsService {
   /* ── Read ── */
 
   async getStats(token: string, orgid: string): Promise<ShopStats> {
-    const cached = await this.redis.get<ShopStats>(this.cacheKey(orgid));
-    if (cached) return cached;
-
     try {
       const metafields = await this.haravanAPI.getMetafields(
         token,
@@ -118,7 +109,6 @@ export class StatsService {
           typeof statsMf.value === 'string'
             ? JSON.parse(statsMf.value)
             : (statsMf.value as ShopStats);
-        await this.redis.set(this.cacheKey(orgid), stats, CACHE_TTL);
         return stats;
       }
     } catch (err) {
@@ -158,8 +148,6 @@ export class StatsService {
   ): Promise<void> {
     try {
       await this.acquireLock(orgid);
-      // Re-read fresh (not from cache) to avoid stale data
-      await this.redis.del(this.cacheKey(orgid));
       const stats = await this.getStats(token, orgid);
 
       const entry: ProductStatEntry = stats.products[productId] || {
@@ -220,7 +208,6 @@ export class StatsService {
   ): Promise<void> {
     try {
       await this.acquireLock(orgid);
-      await this.redis.del(this.cacheKey(orgid));
       const stats = await this.getStats(token, orgid);
 
       const entry: ProductStatEntry = stats.products[productId] || {
@@ -258,7 +245,6 @@ export class StatsService {
   ): Promise<void> {
     try {
       await this.acquireLock(orgid);
-      await this.redis.del(this.cacheKey(orgid));
       const stats = await this.getStats(token, orgid);
       const before = stats.recentReviews.length;
       stats.recentReviews = stats.recentReviews.filter(
@@ -422,8 +408,6 @@ export class StatsService {
         value_type: 'json',
       });
     }
-
-    await this.redis.set(this.cacheKey(orgid), stats, CACHE_TTL);
   }
 
   private decode(s: ShopStats): DecodedShopStats {

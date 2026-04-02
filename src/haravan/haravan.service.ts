@@ -144,7 +144,9 @@ export class HaravanService {
       if (lockAcquired) {
         try {
           const newToken = await this.refreshToken(orgid, session.refresh_token);
-          if (newToken) return newToken;
+          if (newToken) {
+            return newToken;
+          }
         } catch (refreshError) {
           this.logger.warn(
             `Failed to refresh token for orgid ${orgid}: ${getErrorMessage(refreshError)}`,
@@ -411,7 +413,7 @@ export class HaravanService {
         return;
       }
       res.redirect(
-        `${c.frontEndUrl}/error?message=${encodeURIComponent(errorMessage)}`,
+        `${c.frontEndUrl}/install/login?error=oauth_callback_failed&message=${encodeURIComponent(errorMessage)}`,
       );
       return;
     }
@@ -468,7 +470,7 @@ export class HaravanService {
         status: existingApp ? existingApp.status : 'trial',
         expires_at: existingApp
           ? existingApp.expires_at
-          : Date.now() + 30 * 24 * 60 * 60 * 1000, // 30 days trial
+          : Date.now() + 15 * 24 * 60 * 60 * 1000, // 15 days trial
         installed_at: existingApp?.installed_at || Date.now(),
       };
 
@@ -596,6 +598,15 @@ export class HaravanService {
       .find((m) => m.key === MF_KEY);
 
     if (existing?.id) {
+      // Skip write if value is already up-to-date (idempotent)
+      const currentValue =
+        typeof existing.value === 'string'
+          ? existing.value
+          : JSON.stringify(existing.value);
+      if (currentValue === configValue) {
+        this.logger.log(`Storefront config already up-to-date for orgid: ${orgid}`);
+        return;
+      }
       await this.haravanAPI.updateMetafield(token, {
         metafieldid: String(existing.id),
         value: configValue,

@@ -17,8 +17,9 @@ export class QnaMetafieldService {
   }
 
   /**
-   * Load questions AND return raw metafields for reuse in writeQuestions.
-   * Avoids a redundant getProductMetafields call during write operations.
+   * Load ALL questions (admin-facing) from data_chunk_* keys.
+   * Falls back to chunk_* for backward compat (pre-split data).
+   * Returns raw metafields for reuse in writeQuestions (avoids redundant API call).
    */
   async loadQuestionsWithMeta(
     token: string,
@@ -30,6 +31,20 @@ export class QnaMetafieldService {
       NAMESPACE,
     );
 
+    // Try data_chunk_* first (new format — contains all statuses)
+    const dataChunks = metafields
+      .filter((m) => m.key && String(m.key).startsWith('data_chunk_'))
+      .sort((a, b) => {
+        const numA = parseInt(String(a.key).replace('data_chunk_', ''), 10);
+        const numB = parseInt(String(b.key).replace('data_chunk_', ''), 10);
+        return numA - numB;
+      });
+
+    if (dataChunks.length > 0) {
+      return { questions: this.parseChunks(dataChunks, productId), metafields };
+    }
+
+    // Fallback: read from chunk_* (old format — all were approved)
     const chunks = metafields
       .filter((m) => m.key && String(m.key).startsWith('chunk_'))
       .sort((a, b) => {
@@ -38,6 +53,15 @@ export class QnaMetafieldService {
         return numA - numB;
       });
 
+    const questions = this.parseChunks(chunks, productId);
+    // Old questions have no status field → treat as approved
+    for (const q of questions) {
+      if (!q.status) q.status = 'approved';
+    }
+    return { questions, metafields };
+  }
+
+  private parseChunks(chunks: any[], productId: string): Question[] {
     const questions: Question[] = [];
     for (const chunk of chunks) {
       try {
@@ -55,8 +79,7 @@ export class QnaMetafieldService {
         );
       }
     }
-
-    return { questions, metafields };
+    return questions;
   }
 
   async loadSummary(
@@ -94,17 +117,7 @@ export class QnaMetafieldService {
       preloadedMetafields ??
       (await this.haravanAPI.getProductMetafields(token, productId, NAMESPACE));
 
-    const existingChunks = existing
-      .filter((m) => m.key && String(m.key).startsWith('chunk_'))
-      .sort((a, b) => {
-        const numA = parseInt(String(a.key).replace('chunk_', ''), 10);
-        const numB = parseInt(String(b.key).replace('chunk_', ''), 10);
-        return numA - numB;
-      });
-
     const existingSummary = existing.find((m) => m.key === 'summary');
-
-    const newChunks = this.chunkQuestions(questions);
 
     // Write summary
     const summaryValue = JSON.stringify(summary);
@@ -124,9 +137,34 @@ export class QnaMetafieldService {
       });
     }
 
-    // Write chunks
+    // ── Public chunks (approved only, for storefront Liquid) ──
+    const approvedQuestions = questions.filter((q) => q.status === 'approved');
+    const publicQuestions = approvedQuestions.map(({ status, ...rest }) => rest);
+    await this.writeChunkSet(token, productId, existing, 'chunk_', publicQuestions);
+
+    // ── Admin data chunks (all questions incl. pending/hidden) ──
+    await this.writeChunkSet(token, productId, existing, 'data_chunk_', questions);
+  }
+
+  private async writeChunkSet(
+    token: string,
+    productId: string,
+    existingMetafields: any[],
+    prefix: string,
+    questions: any[],
+  ): Promise<void> {
+    const existingChunks = existingMetafields
+      .filter((m) => m.key && String(m.key).startsWith(prefix))
+      .sort((a, b) => {
+        const numA = parseInt(String(a.key).replace(prefix, ''), 10);
+        const numB = parseInt(String(b.key).replace(prefix, ''), 10);
+        return numA - numB;
+      });
+
+    const newChunks = this.chunkQuestions(questions);
+
     for (let i = 0; i < newChunks.length; i++) {
-      const key = `chunk_${i + 1}`;
+      const key = `${prefix}${i + 1}`;
       const value = newChunks[i];
       const existingChunk = existingChunks.find((c) => c.key === key);
 
@@ -149,7 +187,7 @@ export class QnaMetafieldService {
 
     // Delete excess old chunks
     for (const oldChunk of existingChunks) {
-      const chunkNum = parseInt(String(oldChunk.key).replace('chunk_', ''), 10);
+      const chunkNum = parseInt(String(oldChunk.key).replace(prefix, ''), 10);
       if (chunkNum > newChunks.length && oldChunk.id) {
         await this.haravanAPI.deleteProductMetafield(
           token,
@@ -159,8 +197,7 @@ export class QnaMetafieldService {
       }
     }
   }
-
-  private chunkQuestions(questions: Question[]): string[] {
+  private chunkQuestions(questions: any[]): string[] {
     if (questions.length === 0) return [];
 
     const chunks: string[] = [];
@@ -187,8 +224,10 @@ export class QnaMetafieldService {
   }
 
   calculateSummary(questions: Question[]): QnaSummary {
-    const total = questions.length;
-    const answered = questions.filter((q) => !!q.answer).length;
+    // Only count approved questions in public-facing summary
+    const approved = questions.filter((q) => q.status === 'approved');
+    const total = approved.length;
+    const answered = approved.filter((q) => !!q.answer).length;
     return { total, answered, unanswered: total - answered };
   }
 }

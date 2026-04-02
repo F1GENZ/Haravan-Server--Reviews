@@ -30,11 +30,13 @@ export class MediaService {
     this.workerUrl = this.config.get<string>('R2_WORKER_URL') || '';
     this.uploadSecret = this.config.get<string>('R2_UPLOAD_SECRET') || '';
     this.publicDomain = this.config.get<string>('R2_PUBLIC_DOMAIN') || '';
-    this.uploadTicketSecret =
-      this.config.get<string>('PUBLIC_UPLOAD_TICKET_SECRET') ||
-      this.uploadSecret ||
-      this.config.get<string>('HRV_CLIENT_SECRET') ||
-      '';
+    const ticketSecret = this.config.get<string>('PUBLIC_UPLOAD_TICKET_SECRET');
+    if (!ticketSecret) {
+      throw new Error(
+        'PUBLIC_UPLOAD_TICKET_SECRET is not set. Add it to .env before starting the server.',
+      );
+    }
+    this.uploadTicketSecret = ticketSecret;
   }
 
   validateProductId(productId: string): string {

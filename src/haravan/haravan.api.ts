@@ -39,6 +39,11 @@ type ShopResponse = RecordData & {
   shop?: RecordData;
 };
 
+type PaginationConfig = {
+  limit?: number;
+  maxPages?: number;
+};
+
 type MetafieldInput = {
   type: string;
   objectid: string;
@@ -63,6 +68,8 @@ const normalizeQueryValue = (value: QueryPrimitive): string | null => {
 };
 
 const NUMERIC_ID_REGEX = /^\d{1,20}$/;
+const METAFIELD_PAGE_LIMIT = 250;
+const METAFIELD_MAX_PAGES = 20;
 
 /** Validate that an ID param is numeric-only (prevents path traversal). */
 const assertNumericId = (value: string, label: string): void => {
@@ -238,19 +245,14 @@ export class HaravanAPIService {
     namespace?: string,
   ): Promise<MetafieldItem[]> {
     assertNumericId(productId, 'productId');
-    let url = `/products/${productId}/metafields.json`;
-    if (namespace) url += `?namespace=${namespace}`;
-
-    const response = await this.throttledRequest(() =>
-      this.client.get<MetafieldsResponse>(url, {
-        headers: { Authorization: `Bearer ${token}` },
-      }),
+    const metafields = await this.getAllMetafieldPages(
+      token,
+      (page, limit) =>
+        `/products/${productId}/metafields.json?page=${page}&limit=${limit}`,
+      { limit: METAFIELD_PAGE_LIMIT, maxPages: METAFIELD_MAX_PAGES },
     );
-    if (!response.data || !response.data.metafields)
-      throw new BadRequestException('Failed to fetch product metafields');
 
-    // Haravan ignores namespace filter — filter client-side
-    const metafields = response.data.metafields;
+    // Haravan may ignore namespace filter, so always filter client-side.
     if (namespace) {
       return metafields.filter((m) => m.namespace === namespace);
     }
@@ -378,27 +380,52 @@ export class HaravanAPIService {
   ): Promise<MetafieldItem[]> {
     if (type !== 'shop') assertNumericId(objectid, 'objectid');
     const ns = encodeURIComponent(namespace);
-    let url = '';
-    switch (type) {
-      case 'shop':
-        url = `/metafields.json?owner_resource=shop&namespace=${ns}`;
+    return this.getAllMetafieldPages(
+      token,
+      (page, limit) => {
+        switch (type) {
+          case 'shop':
+            return `/metafields.json?owner_resource=shop&namespace=${ns}&page=${page}&limit=${limit}`;
+          case 'page':
+            return `/metafields.json?owner_resource=page&owner_id=${objectid}&namespace=${ns}&page=${page}&limit=${limit}`;
+          default:
+            return `/metafields.json?owner_id=${objectid}&namespace=${ns}&page=${page}&limit=${limit}`;
+        }
+      },
+      { limit: METAFIELD_PAGE_LIMIT, maxPages: METAFIELD_MAX_PAGES },
+    );
+  }
+
+  private async getAllMetafieldPages(
+    token: string,
+    buildUrl: (page: number, limit: number) => string,
+    config: PaginationConfig = {},
+  ): Promise<MetafieldItem[]> {
+    const limit = Math.max(1, config.limit ?? METAFIELD_PAGE_LIMIT);
+    const maxPages = Math.max(1, config.maxPages ?? METAFIELD_MAX_PAGES);
+    const collected: MetafieldItem[] = [];
+
+    for (let page = 1; page <= maxPages; page++) {
+      const url = buildUrl(page, limit);
+      const response = await this.throttledRequest(() =>
+        this.client.get<MetafieldsResponse>(url, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      );
+
+      if (!response.data || !Array.isArray(response.data.metafields)) {
+        throw new BadRequestException('Failed to fetch metafields');
+      }
+
+      const items = response.data.metafields;
+      collected.push(...items);
+
+      if (items.length < limit) {
         break;
-      case 'page':
-        url = `/metafields.json?owner_resource=page&owner_id=${objectid}&namespace=${ns}`;
-        break;
-      default:
-        url = `/metafields.json?owner_id=${objectid}&namespace=${ns}`;
-        break;
+      }
     }
 
-    const response = await this.throttledRequest(() =>
-      this.client.get<MetafieldsResponse>(url, {
-        headers: { Authorization: `Bearer ${token}` },
-      }),
-    );
-    if (!response.data || !response.data.metafields)
-      throw new BadRequestException('Failed to fetch metafields');
-    return response.data.metafields;
+    return collected;
   }
 
   async createMetafield(
