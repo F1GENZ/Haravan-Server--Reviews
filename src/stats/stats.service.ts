@@ -36,6 +36,11 @@ export interface ShopStats {
   lastUpdated: number;
 }
 
+type ShopStatsRecord = {
+  stats: ShopStats;
+  metafieldId: string | null;
+};
+
 /* ── Decoded types for API consumers (now identical to storage) ── */
 
 export type DecodedProductStats = {
@@ -79,6 +84,7 @@ const emptyStats = (): ShopStats => ({
 @Injectable()
 export class StatsService {
   private readonly logger = new Logger(StatsService.name);
+  private readonly statsMetafieldIdCache = new Map<string, string>();
 
   constructor(
     private readonly redis: RedisService,
@@ -89,9 +95,46 @@ export class StatsService {
     return `lock:stats:${orgid}`;
   }
 
+  private rememberStatsMetafieldId(
+    orgid: string,
+    metafieldId: string | number | null | undefined,
+  ): string | null {
+    const normalized =
+      metafieldId === null || metafieldId === undefined
+        ? null
+        : String(metafieldId);
+    if (normalized) {
+      this.statsMetafieldIdCache.set(orgid, normalized);
+    } else {
+      this.statsMetafieldIdCache.delete(orgid);
+    }
+    return normalized;
+  }
+
+  private findStatsMetafield(
+    metafields: Array<{
+      id?: string | number;
+      namespace?: string;
+      key?: string;
+      value?: unknown;
+    }>,
+  ) {
+    return metafields
+      .filter((m) => m.namespace === MF_NAMESPACE)
+      .find((m) => m.key === MF_KEY);
+  }
+
   /* ── Read ── */
 
   async getStats(token: string, orgid: string): Promise<ShopStats> {
+    const { stats } = await this.getStatsRecord(token, orgid);
+    return stats;
+  }
+
+  private async getStatsRecord(
+    token: string,
+    orgid: string,
+  ): Promise<ShopStatsRecord> {
     try {
       const metafields = await this.haravanAPI.getMetafields(
         token,
@@ -100,22 +143,21 @@ export class StatsService {
         '',
       );
       // Filter client-side (Haravan namespace filter may be broken)
-      const statsMf = metafields
-        .filter((m) => m.namespace === MF_NAMESPACE)
-        .find((m) => m.key === MF_KEY);
+      const statsMf = this.findStatsMetafield(metafields);
+      const metafieldId = this.rememberStatsMetafieldId(orgid, statsMf?.id);
 
       if (statsMf?.value) {
         const stats: ShopStats =
           typeof statsMf.value === 'string'
             ? JSON.parse(statsMf.value)
             : (statsMf.value as ShopStats);
-        return stats;
+        return { stats, metafieldId };
       }
     } catch (err) {
       this.logger.warn(`Failed to read shop stats: ${(err as Error)?.message}`);
     }
 
-    return emptyStats();
+    return { stats: emptyStats(), metafieldId: null };
   }
 
   /** Decoded stats for API responses */
@@ -148,7 +190,8 @@ export class StatsService {
   ): Promise<void> {
     try {
       await this.acquireLock(orgid);
-      const stats = await this.getStats(token, orgid);
+      const record = await this.getStatsRecord(token, orgid);
+      const stats = record.stats;
 
       const entry: ProductStatEntry = stats.products[productId] || {
         reviewCount: 0,
@@ -190,7 +233,7 @@ export class StatsService {
       }
 
       this.recalcGlobals(stats);
-      await this.saveStats(token, orgid, stats);
+      await this.saveStats(token, orgid, stats, record.metafieldId);
     } catch (err) {
       this.logger.error(
         `Failed to update review stats: ${(err as Error)?.message}`,
@@ -208,7 +251,8 @@ export class StatsService {
   ): Promise<void> {
     try {
       await this.acquireLock(orgid);
-      const stats = await this.getStats(token, orgid);
+      const record = await this.getStatsRecord(token, orgid);
+      const stats = record.stats;
 
       const entry: ProductStatEntry = stats.products[productId] || {
         reviewCount: 0,
@@ -227,7 +271,7 @@ export class StatsService {
       }
 
       this.recalcGlobals(stats);
-      await this.saveStats(token, orgid, stats);
+      await this.saveStats(token, orgid, stats, record.metafieldId);
     } catch (err) {
       this.logger.error(
         `Failed to update qna stats: ${(err as Error)?.message}`,
@@ -245,13 +289,14 @@ export class StatsService {
   ): Promise<void> {
     try {
       await this.acquireLock(orgid);
-      const stats = await this.getStats(token, orgid);
+      const record = await this.getStatsRecord(token, orgid);
+      const stats = record.stats;
       const before = stats.recentReviews.length;
       stats.recentReviews = stats.recentReviews.filter(
         (r) => r.id !== reviewId,
       );
       if (stats.recentReviews.length !== before) {
-        await this.saveStats(token, orgid, stats);
+        await this.saveStats(token, orgid, stats, record.metafieldId);
       }
     } catch (err) {
       this.logger.error(
@@ -328,7 +373,12 @@ export class StatsService {
     stats.recentReviews = stats.recentReviews.slice(0, 10);
 
     this.recalcGlobals(stats);
-    await this.saveStats(token, orgid, stats);
+    await this.saveStats(
+      token,
+      orgid,
+      stats,
+      this.statsMetafieldIdCache.get(orgid) || null,
+    );
     return stats;
   }
 
@@ -379,8 +429,29 @@ export class StatsService {
     token: string,
     orgid: string,
     stats: ShopStats,
+    metafieldId?: string | null,
   ): Promise<void> {
     const value = JSON.stringify(stats);
+    const cachedId = this.statsMetafieldIdCache.get(orgid) || null;
+    let targetMetafieldId = metafieldId || cachedId;
+
+    if (targetMetafieldId) {
+      try {
+        await this.haravanAPI.updateMetafield(token, {
+          metafieldid: targetMetafieldId,
+          value,
+          value_type: 'json',
+        });
+        this.rememberStatsMetafieldId(orgid, targetMetafieldId);
+        return;
+      } catch (err) {
+        this.logger.warn(
+          `Failed to update cached stats metafield ${targetMetafieldId}: ${(err as Error)?.message}`,
+        );
+        this.rememberStatsMetafieldId(orgid, null);
+        targetMetafieldId = null;
+      }
+    }
 
     const metafields = await this.haravanAPI.getMetafields(
       token,
@@ -388,26 +459,27 @@ export class StatsService {
       MF_NAMESPACE,
       '',
     );
-    const existing = metafields
-      .filter((m) => m.namespace === MF_NAMESPACE)
-      .find((m) => m.key === MF_KEY);
+    const existing = this.findStatsMetafield(metafields);
+    const existingId = this.rememberStatsMetafieldId(orgid, existing?.id);
 
-    if (existing?.id) {
+    if (existingId) {
       await this.haravanAPI.updateMetafield(token, {
-        metafieldid: String(existing.id),
+        metafieldid: existingId,
         value,
         value_type: 'json',
       });
-    } else {
-      await this.haravanAPI.createMetafield(token, {
-        type: 'shop',
-        objectid: '',
-        namespace: MF_NAMESPACE,
-        key: MF_KEY,
-        value,
-        value_type: 'json',
-      });
+      return;
     }
+
+    const created = await this.haravanAPI.createMetafield(token, {
+      type: 'shop',
+      objectid: '',
+      namespace: MF_NAMESPACE,
+      key: MF_KEY,
+      value,
+      value_type: 'json',
+    });
+    this.rememberStatsMetafieldId(orgid, created?.id);
   }
 
   private decode(s: ShopStats): DecodedShopStats {

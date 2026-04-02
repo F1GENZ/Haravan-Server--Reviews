@@ -231,6 +231,15 @@
       .filter((item) => (item.type === 'video' ? config.allowVideo !== false : config.allowImage !== false));
   }
 
+  function normalizeReview(review, config) {
+    const media = collectReviewMedia(review, config);
+    return {
+      ...review,
+      __f1genzappReviewMedia: media,
+      __f1genzappReviewHasMedia: media.length > 0,
+    };
+  }
+
   function uploadPublicFile(apiUrl, orgId, productId, file) {
     return fetchJSON(`${apiUrl}/api/public/media/ticket`, orgId, {
       method: 'POST',
@@ -390,6 +399,10 @@
       super();
       this.visibleReviews = [];
       this.previewUrls = [];
+      this._filteredReviewsCacheKey = '';
+      this._filteredReviewsCacheValue = [];
+      this._resizeFrame = 0;
+      this._lastMasonryColumns = getMasonryColumnCount(window.innerWidth || 1280);
       this.handleKeydown = (event) => {
         if (event.key === 'Escape') {
           if (this.state.lightboxOpen) this.closeLightbox();
@@ -398,19 +411,28 @@
         if (!this.state.lightboxOpen || !this.state.lightboxItems.length) return;
         if (event.key === 'ArrowLeft') {
           this.state.lightboxIndex = (this.state.lightboxIndex - 1 + this.state.lightboxItems.length) % this.state.lightboxItems.length;
-          this.render();
+          this.renderLightboxRegion();
         }
         if (event.key === 'ArrowRight') {
           this.state.lightboxIndex = (this.state.lightboxIndex + 1) % this.state.lightboxItems.length;
-          this.render();
+          this.renderLightboxRegion();
         }
       };
       this.handleResize = () => {
-        if (this.config.reviewLayout === 'masonry') this.render();
+        if (this.config.reviewLayout !== 'masonry') return;
+        if (this._resizeFrame) window.cancelAnimationFrame(this._resizeFrame);
+        this._resizeFrame = window.requestAnimationFrame(() => {
+          this._resizeFrame = 0;
+          const nextColumns = getMasonryColumnCount(window.innerWidth || 1280);
+          if (nextColumns === this._lastMasonryColumns) return;
+          this._lastMasonryColumns = nextColumns;
+          this.renderListRegion();
+        });
       };
       this.state = {
         loading: true,
         reviews: [],
+        reviewsVersion: 0,
         summary: { avg: 0, count: 0, distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } },
         page: 1,
         filterStar: 0,
@@ -445,6 +467,10 @@
     disconnectedCallback() {
       window.removeEventListener('keydown', this.handleKeydown);
       window.removeEventListener('resize', this.handleResize);
+      if (this._resizeFrame) {
+        window.cancelAnimationFrame(this._resizeFrame);
+        this._resizeFrame = 0;
+      }
       this.syncPreviewUrls([]);
     }
 
@@ -472,9 +498,14 @@
           fetchJSON(`${this.apiUrl}/api/public/reviews/${this.productId}/summary`, this.orgId),
         ]);
         this.state.loading = false;
-        this.state.reviews = Array.isArray(reviews) ? reviews : [];
+        this.state.reviews = Array.isArray(reviews)
+          ? reviews.map((review) => normalizeReview(review, this.config))
+          : [];
+        this.state.reviewsVersion += 1;
+        this.invalidateFilteredReviewsCache();
+        this._lastMasonryColumns = getMasonryColumnCount(window.innerWidth || 1280);
         this.state.summary = summary || this.state.summary;
-        this.render();
+        this.renderReviewRegions();
       } catch {
         this.state.loading = false;
         this.renderPlaceholder('');
@@ -486,7 +517,89 @@
       this.previewUrls = files.map((file) => URL.createObjectURL(file));
     }
 
+    invalidateFilteredReviewsCache() {
+      this._filteredReviewsCacheKey = '';
+      this._filteredReviewsCacheValue = [];
+    }
+
+    getReviewMedia(review) {
+      if (Array.isArray(review?.__f1genzappReviewMedia)) {
+        return review.__f1genzappReviewMedia;
+      }
+      return collectReviewMedia(review, this.config);
+    }
+
+    ensureReviewShell() {
+      if (this.querySelector('[data-f1genzapp-review-region="summary"]')) return;
+      this.renderTemplate(`<div class="f1genzapp-review-preview">
+          <div data-f1genzapp-review-region="summary"></div>
+          <div data-f1genzapp-review-region="list"></div>
+          <div data-f1genzapp-review-region="modal"></div>
+          <div data-f1genzapp-review-region="lightbox"></div>
+        </div>`);
+    }
+
+    updateReviewRegion(name, markup) {
+      const node = this.querySelector(`[data-f1genzapp-review-region="${name}"]`);
+      if (!node) return;
+      const nextMarkup = markup || '';
+      if (node.innerHTML !== nextMarkup) {
+        node.innerHTML = nextMarkup;
+      }
+    }
+
+    renderSummaryRegion() {
+      this.renderReviewRegions({ summary: true, list: false, modal: false, lightbox: false });
+    }
+
+    renderListRegion() {
+      this.renderReviewRegions({ summary: false, list: true, modal: false, lightbox: false });
+    }
+
+    renderModalRegion() {
+      this.renderReviewRegions({ summary: false, list: false, modal: true, lightbox: false });
+    }
+
+    renderLightboxRegion() {
+      this.renderReviewRegions({ summary: false, list: false, modal: false, lightbox: true });
+    }
+
+    renderReviewRegions(options = {}) {
+      if (this.state.loading) {
+        this.renderPlaceholder('Äang táº£i Ä‘Ã¡nh giÃ¡...');
+        return;
+      }
+
+      const hasShell = !!this.querySelector('[data-f1genzapp-review-region="summary"]');
+      const {
+        summary = true,
+        list = true,
+        modal = true,
+        lightbox = true,
+      } = options;
+
+      this.ensureReviewShell();
+      const renderSummary = !hasShell || summary;
+      const renderList = !hasShell || list;
+      const renderModal = !hasShell || modal;
+      const renderLightbox = !hasShell || lightbox;
+      if (renderSummary) this.updateReviewRegion('summary', this.renderSummary());
+      if (renderList) this.updateReviewRegion('list', this.renderReviewList());
+      if (renderModal) this.updateReviewRegion('modal', this.renderFormModal());
+      if (renderLightbox) this.updateReviewRegion('lightbox', this.renderLightbox());
+    }
+
     getFilteredReviews() {
+      const cacheKey = [
+        this.state.reviewsVersion,
+        this.state.sortBy,
+        this.state.filterStar,
+        this.state.filterHasMedia ? 1 : 0,
+      ].join(':');
+      if (this._filteredReviewsCacheKey === cacheKey) {
+        return this._filteredReviewsCacheValue;
+      }
+
       let reviews = [...this.state.reviews].sort((left, right) => {
         if (left.pinned && !right.pinned) return -1;
         if (!left.pinned && right.pinned) return 1;
@@ -498,8 +611,10 @@
         reviews = reviews.filter((review) => Number(review.rating) === this.state.filterStar);
       }
       if (this.state.filterHasMedia) {
-        reviews = reviews.filter((review) => collectReviewMedia(review, this.config).length > 0);
+        reviews = reviews.filter((review) => review.__f1genzappReviewHasMedia);
       }
+      this._filteredReviewsCacheKey = cacheKey;
+      this._filteredReviewsCacheValue = reviews;
       return reviews;
     }
 
@@ -524,14 +639,14 @@
         this.state.filterStar = star === 0 || this.state.filterStar === star ? 0 : star;
         this.state.filterHasMedia = false;
         this.state.page = 1;
-        this.render();
+        this.renderReviewRegions({ summary: true, list: true, modal: false, lightbox: false });
         return;
       }
       if (filterMedia !== null) {
         this.state.filterHasMedia = !this.state.filterHasMedia;
         this.state.filterStar = 0;
         this.state.page = 1;
-        this.render();
+        this.renderReviewRegions({ summary: true, list: true, modal: false, lightbox: false });
         return;
       }
 
@@ -550,22 +665,22 @@
       }
       if (action === 'page-prev') {
         this.state.page = Math.max(1, this.state.page - 1);
-        this.render();
+        this.renderListRegion();
         return;
       }
       if (action === 'page-next') {
         this.state.page += 1;
-        this.render();
+        this.renderListRegion();
         return;
       }
       if (action === 'page-set') {
         this.state.page = Math.max(1, Number.parseInt(actionNode.getAttribute('data-page') || '1', 10));
-        this.render();
+        this.renderListRegion();
         return;
       }
       if (action === 'set-rating') {
         this.state.formRating = Number.parseInt(actionNode.getAttribute('data-rating') || '0', 10);
-        this.render();
+        this.renderModalRegion();
         return;
       }
       if (action === 'trigger-file') {
@@ -578,7 +693,7 @@
         if (index >= 0) {
           this.state.formFiles.splice(index, 1);
           this.syncPreviewUrls(this.state.formFiles);
-          this.render();
+          this.renderModalRegion();
         }
         return;
       }
@@ -591,12 +706,12 @@
         const mediaIndex = Number.parseInt(actionNode.getAttribute('data-media-index') || '0', 10);
         const review = this.visibleReviews[reviewIndex];
         if (!review) return;
-        const media = collectReviewMedia(review, this.config);
+        const media = this.getReviewMedia(review);
         if (!media.length) return;
         this.state.lightboxOpen = true;
         this.state.lightboxItems = media;
         this.state.lightboxIndex = mediaIndex;
-        this.render();
+        this.renderLightboxRegion();
         return;
       }
       if (action === 'close-lightbox') {
@@ -605,12 +720,12 @@
       }
       if (action === 'prev-lightbox') {
         this.state.lightboxIndex = (this.state.lightboxIndex - 1 + this.state.lightboxItems.length) % this.state.lightboxItems.length;
-        this.render();
+        this.renderLightboxRegion();
         return;
       }
       if (action === 'next-lightbox') {
         this.state.lightboxIndex = (this.state.lightboxIndex + 1) % this.state.lightboxItems.length;
-        this.render();
+        this.renderLightboxRegion();
       }
     }
 
@@ -620,7 +735,7 @@
       if (target.matches('[data-action="sort"]')) {
         this.state.sortBy = target.value;
         this.state.page = 1;
-        this.render();
+        this.renderReviewRegions({ summary: true, list: true, modal: false, lightbox: false });
         return;
       }
       if (target.id === 'f1genzapp-review-input-media') {
@@ -641,7 +756,7 @@
         });
         target.value = '';
         this.syncPreviewUrls(this.state.formFiles);
-        this.render();
+        this.renderModalRegion();
       }
     }
 
@@ -664,7 +779,7 @@
       this.state.formError = '';
       this.state.formSuccess = '';
       this.syncPreviewUrls([]);
-      this.render();
+      this.renderModalRegion();
     }
 
     closeForm() {
@@ -676,14 +791,14 @@
       this.state.formError = '';
       this.state.formSuccess = '';
       this.syncPreviewUrls([]);
-      this.render();
+      this.renderModalRegion();
     }
 
     closeLightbox() {
       this.state.lightboxOpen = false;
       this.state.lightboxItems = [];
       this.state.lightboxIndex = 0;
-      this.render();
+      this.renderLightboxRegion();
     }
 
     async submitForm() {
@@ -699,74 +814,74 @@
       }
       if (!this.state.formRating) {
         this.state.formError = 'Vui lòng chọn số sao đánh giá';
-        this.render();
+        this.renderModalRegion();
         return;
       }
       if (!author) {
         this.state.formError = 'Vui lòng nhập Họ Tên';
-        this.render();
+        this.renderModalRegion();
         return;
       }
       if (author.length < 2) {
         this.state.formError = 'Họ Tên phải có ít nhất 2 ký tự';
-        this.render();
+        this.renderModalRegion();
         return;
       }
       if (author.length > 100) {
         this.state.formError = 'Họ Tên tối đa 100 ký tự';
-        this.render();
+        this.renderModalRegion();
         return;
       }
       if (this.config.formTitleMode === 'required' && !title) {
         this.state.formError = 'Vui lòng nhập Tiêu đề';
-        this.render();
+        this.renderModalRegion();
         return;
       }
       if (title && title.length > 100) {
         this.state.formError = 'Tiêu đề tối đa 100 ký tự';
-        this.render();
+        this.renderModalRegion();
         return;
       }
       const formContentMode = getFormContentMode(this.config);
       if (formContentMode === 'required' && !content) {
         this.state.formError = 'Vui lòng nhập Nội dung đánh giá';
-        this.render();
+        this.renderModalRegion();
         return;
       }
       if (content && content.length > 2000) {
         this.state.formError = 'Nội dung tối đa 2000 ký tự';
-        this.render();
+        this.renderModalRegion();
         return;
       }
       if (this.config.formEmailMode === 'required' && !email) {
         this.state.formError = 'Vui lòng nhập Email';
-        this.render();
+        this.renderModalRegion();
         return;
       }
       if (email && !isValidEmail(email)) {
         this.state.formError = 'Email không đúng định dạng';
-        this.render();
+        this.renderModalRegion();
         return;
       }
       if (email && email.length > 200) {
         this.state.formError = 'Email tối đa 200 ký tự';
-        this.render();
+        this.renderModalRegion();
         return;
       }
       if (this.config.formPhoneMode === 'required' && !phone) {
         this.state.formError = 'Vui lòng nhập Số điện thoại';
-        this.render();
+        this.renderModalRegion();
         return;
       }
       if (phone && !isValidPhone(phone)) {
         this.state.formError = 'Số điện thoại không hợp lệ (VD: 0987123456 hoặc +84987123456)';
-        this.render();
+        this.renderModalRegion();
         return;
       }
 
       this.state.formSubmitting = true;
       this.state.formError = '';
-      this.render();
+      this.renderModalRegion();
 
       try {
         const uploads = await Promise.all(
@@ -790,7 +905,7 @@
         this.syncPreviewUrls([]);
         this.state.formFiles = [];
         this.state.formDraft = { title: '', content: '', author: '', email: '', phone: '' };
-        this.render();
+        this.renderModalRegion();
         await this.reloadData(false);
         window.setTimeout(() => this.closeForm(), 2500);
       } catch (error) {
@@ -798,7 +913,7 @@
         this.state.formError = error instanceof Error && error.message
           ? error.message
           : 'Gửi thất bại. Vui lòng thử lại sau.';
-        this.render();
+        this.renderModalRegion();
       }
     }
 
@@ -872,7 +987,7 @@
       const useGrid = this.config.reviewLayout === 'grid';
       const useMasonry = this.config.reviewLayout === 'masonry';
       const renderReviewCard = (review, reviewIndex) => {
-        const media = collectReviewMedia(review, this.config);
+        const media = this.getReviewMedia(review);
         const showEmail = this.config.emailDisplay !== 'hidden' && review.email;
         const showPhone = this.config.phoneDisplay !== 'hidden' && review.phone;
         return `<article class="f1genzapp-review-card">
@@ -910,7 +1025,7 @@
       };
       let content = '';
       if (useMasonry) {
-        const columnCount = getMasonryColumnCount(window.innerWidth || 1280);
+        const columnCount = this._lastMasonryColumns;
         const columns = splitIntoMasonryColumns(
           this.visibleReviews.map((review, reviewIndex) => ({ review, reviewIndex })),
           columnCount,
@@ -1027,6 +1142,8 @@
     }
 
     render() {
+      this.renderReviewRegions();
+      return;
       if (this.state.loading) {
         this.renderPlaceholder('Đang tải đánh giá...');
         return;
