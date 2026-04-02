@@ -135,14 +135,10 @@ export class PublicReviewController {
   ) {
     const orgid = this.extractOrgid(orgidHeader);
     const token = await this.getToken(orgid);
-    const summary = await this.metafieldService.loadSummary(token, productId);
-    return {
-      data: (summary as RatingSummary) || {
-        avg: 0,
-        count: 0,
-        distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
-      },
-    };
+    // Calculate public summary from approved reviews only
+    const all = await this.metafieldService.loadReviews(token, productId);
+    const summary = this.metafieldService.calculatePublicSummary(all);
+    return { data: summary };
   }
 
   /** Storefront submit review (no auth guard — uses orgid header to look up token) */

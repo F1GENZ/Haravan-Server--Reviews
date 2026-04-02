@@ -254,10 +254,10 @@ export class ReviewMetafieldService {
     return chunks;
   }
 
+  /** Admin-facing summary: counts all non-hidden reviews (including pending) */
   calculateSummary(reviews: Review[]): RatingSummary {
-    // Only count approved reviews in public-facing summary
     const visible = reviews.filter(
-      (r) => (r.status || 'approved') === 'approved',
+      (r) => (r.status || 'approved') !== 'hidden',
     );
     const distribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } as Record<
       number,
@@ -274,6 +274,36 @@ export class ReviewMetafieldService {
       count > 0
         ? Math.round(
             (visible.reduce((sum, r) => sum + r.rating, 0) / count) * 10,
+          ) / 10
+        : 0;
+
+    return {
+      avg,
+      count,
+      distribution: distribution as RatingSummary['distribution'],
+    };
+  }
+
+  /** Public-facing summary: counts only approved reviews (for storefront) */
+  calculatePublicSummary(reviews: Review[]): RatingSummary {
+    const approved = reviews.filter(
+      (r) => (r.status || 'approved') === 'approved',
+    );
+    const distribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } as Record<
+      number,
+      number
+    >;
+    for (const review of approved) {
+      if (review.rating >= 1 && review.rating <= 5) {
+        distribution[review.rating]++;
+      }
+    }
+
+    const count = approved.length;
+    const avg =
+      count > 0
+        ? Math.round(
+            (approved.reduce((sum, r) => sum + r.rating, 0) / count) * 10,
           ) / 10
         : 0;
 
