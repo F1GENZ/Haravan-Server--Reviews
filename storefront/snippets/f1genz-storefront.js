@@ -36,7 +36,7 @@
     formEmailMode: 'optional',
     formPhoneMode: 'hidden',
     formTitleMode: 'optional',
-    formContentRequired: false,
+    formContentMode: 'optional',
     requireLogin: false,
     allowQnA: true,
     reviewItemsPerPage: 5,
@@ -130,14 +130,18 @@
     });
   }
 
+  function getFormContentMode(config) {
+    return config.formContentMode || (config.formContentRequired ? 'required' : 'optional');
+  }
+
   function isValidEmail(value) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
   }
 
   function isValidPhone(value) {
-    const cleaned = String(value || '').trim();
+    const cleaned = String(value || '').trim().replace(/[\s\-().]/g, '');
     if (!cleaned) return false;
-    return /^[0-9+\-\s()]{8,20}$/.test(cleaned);
+    return /^(0[2-9]\d{8}|(\+?84)[2-9]\d{8})$/.test(cleaned);
   }
 
   function getWidgetConfig(apiUrl, orgId) {
@@ -723,7 +727,8 @@
         this.render();
         return;
       }
-      if (this.config.formContentRequired && !content) {
+      const formContentMode = getFormContentMode(this.config);
+      if (formContentMode === 'required' && !content) {
         this.state.formError = 'Vui lòng nhập Nội dung đánh giá';
         this.render();
         return;
@@ -754,7 +759,7 @@
         return;
       }
       if (phone && !isValidPhone(phone)) {
-        this.state.formError = 'Số điện thoại không hợp lệ (8-20 ký tự, chỉ số và ký tự +, -, ())';
+        this.state.formError = 'Số điện thoại không hợp lệ (VD: 0987123456 hoặc +84987123456)';
         this.render();
         return;
       }
@@ -965,10 +970,10 @@
               <label class="f1genzapp-review-form-label">Tiêu đề${this.config.formTitleMode === 'required' ? ' *' : ''}</label>
               <input class="f1genzapp-review-input" id="f1genzapp-review-input-title" maxlength="100" placeholder="Tóm tắt đánh giá" value="${escapeHTML(draft.title)}">
             </div>` : ''}
-            <div class="f1genzapp-review-form-group">
-              <label class="f1genzapp-review-form-label">Nội dung${this.config.formContentRequired ? ' *' : ''}</label>
+            ${getFormContentMode(this.config) !== 'hidden' ? `<div class="f1genzapp-review-form-group">
+              <label class="f1genzapp-review-form-label">Nội dung${getFormContentMode(this.config) === 'required' ? ' *' : ''}</label>
               <textarea class="f1genzapp-review-textarea" id="f1genzapp-review-input-content" maxlength="2000" placeholder="Chia sẻ cảm nhận của bạn về sản phẩm này">${escapeHTML(draft.content)}</textarea>
-            </div>
+            </div>` : ''}
             <div class="f1genzapp-review-modal-row">
               <div class="f1genzapp-review-form-group" style="flex:1">
                 <label class="f1genzapp-review-form-label">Họ Tên *</label>

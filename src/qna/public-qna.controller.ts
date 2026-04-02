@@ -71,10 +71,10 @@ export class PublicQnaController {
     if (!config.allowQnA) {
       return { data: { total: 0, answered: 0, unanswered: 0 } };
     }
-    const summary = await this.metafieldService.loadSummary(token, productId);
-    return {
-      data: (summary as QnaSummary) || { total: 0, answered: 0, unanswered: 0 },
-    };
+    // Calculate public summary from approved questions only
+    const all = await this.metafieldService.loadQuestions(token, productId);
+    const summary = this.metafieldService.calculatePublicSummary(all);
+    return { data: summary };
   }
 
   @Post(':productId')

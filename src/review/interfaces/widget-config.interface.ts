@@ -21,7 +21,8 @@ export interface WidgetConfig {
   formEmailMode: 'hidden' | 'optional' | 'required';
   formPhoneMode: 'hidden' | 'optional' | 'required';
   formTitleMode: 'hidden' | 'optional' | 'required';
-  formContentRequired: boolean;
+  formContentMode: 'hidden' | 'optional' | 'required';
+  formContentRequired?: boolean;
   reviewLayout: 'list' | 'grid' | 'masonry';
   reviewItemsPerPage: number;
   allowImage: boolean;
@@ -61,7 +62,7 @@ export const DEFAULT_WIDGET_CONFIG: WidgetConfig = {
   formEmailMode: 'optional',
   formPhoneMode: 'hidden',
   formTitleMode: 'optional',
-  formContentRequired: false,
+  formContentMode: 'optional',
   reviewLayout: 'list',
   reviewItemsPerPage: 5,
   allowImage: true,

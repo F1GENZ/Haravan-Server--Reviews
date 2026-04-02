@@ -58,7 +58,10 @@ export class UpdateWidgetConfigDto {
     | 'hidden'
     | 'optional'
     | 'required';
-  @IsBoolean() @IsOptional() formContentRequired?: boolean;
+  @IsIn(['hidden', 'optional', 'required']) @IsOptional() formContentMode?:
+    | 'hidden'
+    | 'optional'
+    | 'required';
   @IsIn(['list', 'grid', 'masonry']) @IsOptional() reviewLayout?: 'list' | 'grid' | 'masonry';
   @IsInt() @IsOptional() @Min(1) @Max(50) reviewItemsPerPage?: number;
   @IsBoolean() @IsOptional() allowImage?: boolean;

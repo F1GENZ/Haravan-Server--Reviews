@@ -6,7 +6,6 @@ import {
   Body,
   Headers,
   BadRequestException,
-  ForbiddenException,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { RedisService } from '../redis/redis.service';
@@ -19,7 +18,7 @@ import type { WidgetConfig } from './interfaces/widget-config.interface';
 
 const ORGID_REGEX = /^[a-zA-Z0-9_-]{1,128}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_RE = /^[0-9+\-\s()]{8,20}$/;
+const PHONE_RE = /^(0[2-9]\d{8}|(\+?84)[2-9]\d{8})$/;
 
 /** Mask email for public display: "john***@gmail.com" */
 function maskEmail(email?: string): string | undefined {
@@ -167,10 +166,6 @@ export class PublicReviewController {
     const token = await this.getToken(orgid);
     const config = await this.getWidgetConfigForOrgid(orgid, token);
 
-    if (config.requireLogin) {
-      throw new ForbiddenException('Review submission requires login');
-    }
-
     // Basic validation
     if (
       !body.rating ||
@@ -210,6 +205,9 @@ export class PublicReviewController {
     const title = typeof body.title === 'string' ? body.title.trim() : '';
     const email = typeof body.email === 'string' ? body.email.trim() : '';
     const phone = typeof body.phone === 'string' ? body.phone.trim() : '';
+    const formContentMode =
+      config.formContentMode ||
+      (config.formContentRequired ? 'required' : 'optional');
 
     if (title && title.length > 100) {
       throw new BadRequestException('Title must be at most 100 characters');
@@ -220,7 +218,7 @@ export class PublicReviewController {
     if (config.formTitleMode === 'required' && !title) {
       throw new BadRequestException('Title is required');
     }
-    if (config.formContentRequired && !content) {
+    if (formContentMode === 'required' && !content) {
       throw new BadRequestException('Content is required');
     }
     if (config.formEmailMode === 'required' && !email) {
@@ -235,8 +233,8 @@ export class PublicReviewController {
     if (config.formPhoneMode === 'required' && !phone) {
       throw new BadRequestException('Phone is required');
     }
-    if (phone && !PHONE_RE.test(phone)) {
-      throw new BadRequestException('Phone is invalid (8-20 characters, digits and +, -, () only)');
+    if (phone && !PHONE_RE.test(phone.replace(/[\s\-().]/g, ''))) {
+      throw new BadRequestException('Phone is invalid (VD: 0987123456 or +84987123456)');
     }
 
     // Validate & sanitize media items

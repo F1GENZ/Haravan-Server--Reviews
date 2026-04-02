@@ -223,8 +223,16 @@ export class QnaMetafieldService {
     return chunks;
   }
 
+  /** Admin-facing summary: counts all non-hidden questions (including pending) */
   calculateSummary(questions: Question[]): QnaSummary {
-    // Only count approved questions in public-facing summary
+    const visible = questions.filter((q) => q.status !== 'hidden');
+    const total = visible.length;
+    const answered = visible.filter((q) => !!q.answer).length;
+    return { total, answered, unanswered: total - answered };
+  }
+
+  /** Public-facing summary: counts only approved questions (for storefront) */
+  calculatePublicSummary(questions: Question[]): QnaSummary {
     const approved = questions.filter((q) => q.status === 'approved');
     const total = approved.length;
     const answered = approved.filter((q) => !!q.answer).length;
