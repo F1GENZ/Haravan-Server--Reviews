@@ -3,8 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import { randomBytes } from 'crypto';
 
-const IMAGE_MAX_SIZE = 5 * 1024 * 1024; // 5 MB
-const VIDEO_MAX_SIZE = 50 * 1024 * 1024; // 50 MB
+const IMAGE_MAX_SIZE = 500 * 1024; // 500 KB
+const VIDEO_MAX_SIZE = 2 * 1024 * 1024; // 2 MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'video/mp4'];
 const NUMERIC_ID_RE = /^\d{1,20}$/;
 const FILENAME_RE = /^(?!.*\.\.)(?!.*[/\\])[\s\S]{1,255}$/;
@@ -65,7 +65,7 @@ export class MediaService {
     const maxSize = isVideo ? VIDEO_MAX_SIZE : IMAGE_MAX_SIZE;
     if (fileSize > maxSize) {
       throw new BadRequestException(
-        `File too large. Max ${isVideo ? '50MB' : '5MB'} for ${isVideo ? 'video' : 'image'}`,
+        `File too large. Max ${isVideo ? '2MB' : '500KB'} for ${isVideo ? 'video' : 'image'}`,
       );
     }
 

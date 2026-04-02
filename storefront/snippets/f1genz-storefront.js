@@ -2,6 +2,7 @@
   if (window.__f1genzappReviewStorefrontRuntimeBooted) return;
   window.__f1genzappReviewStorefrontRuntimeBooted = true;
   const API_URL = 'https://api-haravan-reviews.f1genz.dev';
+  const ACCOUNT_LOGIN_URL = '/account';
 
   const DEFAULT_CONFIG = {
     titleText: 'Đánh giá sản phẩm',
@@ -43,6 +44,9 @@
   };
 
   const CONFIG_CACHE = new Map();
+  const MAX_MEDIA_FILES = 5;
+  const IMAGE_MAX_SIZE = 500 * 1024;
+  const VIDEO_MAX_SIZE = 2 * 1024 * 1024;
   const AVATAR_COLORS = [
     '#f43f5e',
     '#ec4899',
@@ -505,7 +509,11 @@
 
       const action = actionNode.getAttribute('data-action');
       if (action === 'open-form') {
-        if (!this.config.requireLogin) this.openForm();
+        if (this.config.requireLogin) {
+          window.location.href = ACCOUNT_LOGIN_URL;
+          return;
+        }
+        this.openForm();
         return;
       }
       if (action === 'close-form') {
@@ -589,9 +597,18 @@
       }
       if (target.id === 'f1genzapp-review-input-media') {
         const nextFiles = Array.from(target.files || []);
+        this.state.formError = '';
         nextFiles.forEach((file) => {
-          if (file.size > 50 * 1024 * 1024) return;
-          if (this.state.formFiles.length >= 5) return;
+          const isVideo = file.type.startsWith('video/');
+          const maxSize = isVideo ? VIDEO_MAX_SIZE : IMAGE_MAX_SIZE;
+          if (file.size > maxSize) {
+            this.state.formError = `Mỗi ${isVideo ? 'video' : 'ảnh'} chỉ được tối đa ${isVideo ? '2MB' : '500KB'}.`;
+            return;
+          }
+          if (this.state.formFiles.length >= MAX_MEDIA_FILES) {
+            this.state.formError = `Chỉ được tải tối đa ${MAX_MEDIA_FILES} tệp.`;
+            return;
+          }
           this.state.formFiles.push(file);
         });
         target.value = '';
@@ -649,8 +666,7 @@
       const phone = this.state.formDraft.phone.trim();
 
       if (this.config.requireLogin) {
-        this.state.formError = 'Shop yêu cầu đăng nhập trước khi gửi đánh giá.';
-        this.render();
+        window.location.href = ACCOUNT_LOGIN_URL;
         return;
       }
       if (!this.state.formRating) {
@@ -754,9 +770,12 @@
         filters += `<button class="f1genzapp-review-pill ${this.state.filterHasMedia ? 'f1genzapp-review-pill--active' : ''}" data-filter-media="1">Có hình ảnh</button></div>`;
       }
 
-      const writeLabel = this.config.requireLogin ? 'Cần đăng nhập để đánh giá' : 'Viết đánh giá';
+      const writeLabel = this.config.requireLogin ? 'Đăng nhập để đánh giá' : 'Viết đánh giá';
+      const writeAction = this.config.requireLogin
+        ? `<a class="f1genzapp-review-btn--write f1genzapp-review-btn--login" href="${ACCOUNT_LOGIN_URL}" title="Đăng nhập tại /account">${writeLabel}</a>`
+        : `<button type="button" class="f1genzapp-review-btn--write" data-action="open-form">${writeLabel}</button>`;
       return `<div class="f1genzapp-review-section">
-        ${this.config.showTitle ? `<h2 class="f1genzapp-review-title">${escapeHTML(this.config.titleText)}</h2>` : ''}
+        ${this.config.showTitle ? `<h2 class="f1genzapp-review-title">${escapeHTML(this.config.titleText)} (${Number(summary.count || 0)})</h2>` : ''}
         <div class="f1genzapp-review-summary">
           <div class="f1genzapp-review-summary__score">
             <span class="f1genzapp-review-summary__avg">${Number(summary.avg || 0).toFixed(1)}</span>
@@ -773,7 +792,7 @@
             <option value="newest" ${this.state.sortBy === 'newest' ? 'selected' : ''}>Mới nhất</option>
             <option value="oldest" ${this.state.sortBy === 'oldest' ? 'selected' : ''}>Cũ nhất</option>
           </select>` : ''}
-          <button type="button" class="f1genzapp-review-btn--write" data-action="open-form" ${this.config.requireLogin ? 'disabled aria-disabled="true"' : ''}>${writeLabel}</button>
+          ${writeAction}
         </div>
       </div>`;
     }
@@ -912,6 +931,7 @@
             </div>` : ''}
             ${(this.config.allowImage || this.config.allowVideo) ? `<div class="f1genzapp-review-form-group">
               <label class="f1genzapp-review-form-label">Đính kèm ${this.config.allowImage && this.config.allowVideo ? 'Ảnh/Video' : this.config.allowImage ? 'Ảnh' : 'Video'}</label>
+              <div class="f1genzapp-review-form-hint">Tối đa 5 tệp. Ảnh tối đa 500KB, video tối đa 2MB.</div>
               <div class="f1genzapp-review-file-wrap">
                 <input id="f1genzapp-review-input-media" type="file" multiple accept="${accept.join(',')}" hidden>
                 <button type="button" class="f1genzapp-review-btn--outline" data-action="trigger-file">Chọn tệp...</button>
@@ -1037,6 +1057,10 @@
 
       const action = actionNode.getAttribute('data-action');
       if (action === 'open-form') {
+        if (this.config.requireLogin) {
+          window.location.href = ACCOUNT_LOGIN_URL;
+          return;
+        }
         if (this.config.allowQnA !== false) this.openForm();
         return;
       }
@@ -1091,6 +1115,11 @@
     }
 
     async submitForm() {
+      if (this.config.requireLogin) {
+        window.location.href = ACCOUNT_LOGIN_URL;
+        return;
+      }
+
       const author = this.state.formDraft.author.trim();
       const email = this.state.formDraft.email.trim();
       const question = this.state.formDraft.question.trim();
@@ -1225,11 +1254,14 @@
         this.renderPlaceholder('Đang tải hỏi đáp...');
         return;
       }
+      const askAction = this.config.requireLogin
+        ? `<a class="f1genzapp-review-btn--ask f1genzapp-review-btn--login" href="${ACCOUNT_LOGIN_URL}" title="Đăng nhập tại /account">Đăng nhập để đặt câu hỏi</a>`
+        : `<button type="button" class="f1genzapp-review-btn--ask" data-action="open-form">Đặt câu hỏi</button>`;
       this.renderTemplate(`<div class="f1genzapp-review-preview">
           <div class="f1genzapp-review-qna-header">
             <h3>Hỏi đáp (${Number(this.state.summary.total || 0)})</h3>
             <div class="f1genzapp-review-qna-header__actions">
-              <button type="button" class="f1genzapp-review-btn--ask" data-action="open-form">Đặt câu hỏi</button>
+              ${askAction}
             </div>
           </div>
           ${this.renderQuestions()}

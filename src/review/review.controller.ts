@@ -74,6 +74,13 @@ export class ReviewController {
     return { data: config };
   }
 
+  @Get('all')
+  async getAllReviews(@Req() req: AuthRequest) {
+    if (!req.token || !req.orgid) throw new BadRequestException('Missing auth');
+    const reviews = await this.reviewService.getAllReviews(req.token, req.orgid);
+    return { data: reviews };
+  }
+
   @Get(':productId')
   async getReviews(
     @Param('productId', NumericIdPipe) productId: string,

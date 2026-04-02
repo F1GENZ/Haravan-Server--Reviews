@@ -43,9 +43,10 @@
 .f1genzapp-review-title {
   margin: 0 0 1rem;
   color: var(--f1genzapp-review-text);
-  font-size: 1.25rem;
+  font-size: 1.1rem;
   font-weight: 700;
   letter-spacing: -0.01em;
+  line-height: 1.35;
 }
 
 .f1genzapp-review-section {
@@ -157,6 +158,7 @@
   cursor: pointer;
   transition: all 0.2s;
   white-space: nowrap;
+  text-decoration: none;
 }
 
 .f1genzapp-review-btn,
@@ -185,28 +187,19 @@
   cursor: not-allowed;
 }
 
+.f1genzapp-review-btn--login {
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.12);
+}
+
 .f1genzapp-review-btn--write,
 .f1genzapp-review-btn--ask {
-  padding: 0.65rem 1.25rem;
-  font-size: 0.85rem;
-}
-
-.f1genzapp-review-btn--write {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 32px;
+  min-height: 36px;
   width: auto;
   margin: 0;
-  padding: 0 0.95rem;
-  font-size: 0.75rem;
+  padding: 0 1rem;
+  font-size: 0.8rem;
   line-height: 1;
   white-space: nowrap;
-}
-
-.f1genzapp-review-btn--ask {
-  width: auto;
-  margin: 0;
 }
 
 .f1genzapp-review-btn--outline {
@@ -686,8 +679,9 @@
 .f1genzapp-review-qna-header h3 {
   margin: 0;
   color: var(--f1genzapp-review-text);
-  font-size: 0.95rem;
+  font-size: 1.1rem;
   font-weight: 700;
+  line-height: 1.35;
 }
 
 .f1genzapp-review-qna-header__actions {
@@ -814,6 +808,13 @@
   color: var(--f1genzapp-review-text);
   font-size: 0.82rem;
   font-weight: 600;
+}
+
+.f1genzapp-review-form-hint {
+  margin-bottom: 0.5rem;
+  color: var(--f1genzapp-review-text-muted);
+  font-size: 0.76rem;
+  line-height: 1.5;
 }
 
 .f1genzapp-review-modal-stars {

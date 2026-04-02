@@ -198,6 +198,41 @@ export class ReviewService {
     return this.metafieldService.loadReviews(token, productId);
   }
 
+  /**
+   * Load all reviews across all products that have reviews.
+   * Uses stats to get product IDs, then loads in parallel (up to 6 concurrent).
+   * Injects productId into each review for client-side operations.
+   */
+  async getAllReviews(
+    token: string,
+    orgid: string,
+  ): Promise<(Review & { productId: string })[]> {
+    const stats = await this.statsService.getDecodedStats(token, orgid);
+    const productIds = stats.products
+      .filter((p) => p.reviewCount > 0)
+      .map((p) => p.productId);
+
+    const CONCURRENCY = 6;
+    const results: (Review & { productId: string })[] = [];
+
+    for (let i = 0; i < productIds.length; i += CONCURRENCY) {
+      const chunk = productIds.slice(i, i + CONCURRENCY);
+      const chunkResults = await Promise.all(
+        chunk.map(async (productId) => {
+          try {
+            const reviews = await this.metafieldService.loadReviews(token, productId);
+            return reviews.map((r) => ({ ...r, productId }));
+          } catch {
+            return [];
+          }
+        }),
+      );
+      results.push(...chunkResults.flat());
+    }
+
+    return results.sort((a, b) => b.created_at - a.created_at);
+  }
+
   async getSummary(
     token: string,
     orgid: string,

@@ -467,7 +467,11 @@ export class HaravanService {
         token_expires_at: tokenExpiresAt,
         orgid,
         orgsub,
-        status: existingApp ? existingApp.status : 'trial',
+        status: existingApp
+          ? (['needs_reinstall', 'unactive'].includes(existingApp.status ?? '')
+              ? 'trial'
+              : existingApp.status)
+          : 'trial',
         expires_at: existingApp
           ? existingApp.expires_at
           : Date.now() + 15 * 24 * 60 * 60 * 1000, // 15 days trial
