@@ -89,8 +89,20 @@ export class PublicQnaController {
     if (!body.author || typeof body.author !== 'string' || !body.author.trim()) {
       throw new BadRequestException('Author is required');
     }
+    if (body.author.trim().length < 2) {
+      throw new BadRequestException('Author must be at least 2 characters');
+    }
+    if (body.author.trim().length > 100) {
+      throw new BadRequestException('Author must be at most 100 characters');
+    }
     if (!body.question || typeof body.question !== 'string' || !body.question.trim()) {
       throw new BadRequestException('Question is required');
+    }
+    if (body.question.trim().length < 5) {
+      throw new BadRequestException('Question must be at least 5 characters');
+    }
+    if (body.question.trim().length > 1000) {
+      throw new BadRequestException('Question must be at most 1000 characters');
     }
     if (body.email !== undefined && typeof body.email !== 'string') {
       throw new BadRequestException('Email must be a string');
@@ -99,6 +111,9 @@ export class PublicQnaController {
     const email = body.email?.trim();
     if (email && !EMAIL_RE.test(email)) {
       throw new BadRequestException('Email is invalid');
+    }
+    if (email && email.length > 200) {
+      throw new BadRequestException('Email must be at most 200 characters');
     }
 
     const token = await this.getToken(orgid);

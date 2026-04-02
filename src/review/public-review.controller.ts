@@ -19,6 +19,7 @@ import type { WidgetConfig } from './interfaces/widget-config.interface';
 
 const ORGID_REGEX = /^[a-zA-Z0-9_-]{1,128}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_RE = /^[0-9+\-\s()]{8,20}$/;
 
 /** Mask email for public display: "john***@gmail.com" */
 function maskEmail(email?: string): string | undefined {
@@ -186,6 +187,12 @@ export class PublicReviewController {
     ) {
       throw new BadRequestException('Author is required');
     }
+    if (body.author.trim().length < 2) {
+      throw new BadRequestException('Author must be at least 2 characters');
+    }
+    if (body.author.trim().length > 100) {
+      throw new BadRequestException('Author must be at most 100 characters');
+    }
     if (body.content && typeof body.content !== 'string') {
       throw new BadRequestException('Content must be a string');
     }
@@ -204,6 +211,12 @@ export class PublicReviewController {
     const email = typeof body.email === 'string' ? body.email.trim() : '';
     const phone = typeof body.phone === 'string' ? body.phone.trim() : '';
 
+    if (title && title.length > 100) {
+      throw new BadRequestException('Title must be at most 100 characters');
+    }
+    if (content && content.length > 2000) {
+      throw new BadRequestException('Content must be at most 2000 characters');
+    }
     if (config.formTitleMode === 'required' && !title) {
       throw new BadRequestException('Title is required');
     }
@@ -216,8 +229,14 @@ export class PublicReviewController {
     if (email && !EMAIL_RE.test(email)) {
       throw new BadRequestException('Email is invalid');
     }
+    if (email && email.length > 200) {
+      throw new BadRequestException('Email must be at most 200 characters');
+    }
     if (config.formPhoneMode === 'required' && !phone) {
       throw new BadRequestException('Phone is required');
+    }
+    if (phone && !PHONE_RE.test(phone)) {
+      throw new BadRequestException('Phone is invalid (8-20 characters, digits and +, -, () only)');
     }
 
     // Validate & sanitize media items

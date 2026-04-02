@@ -4,6 +4,16 @@
   const API_URL = 'https://api-haravan-reviews.f1genz.dev';
   const ACCOUNT_LOGIN_URL = '/account';
 
+  let _customerLoggedInPromise = null;
+  function checkCustomerLoggedIn() {
+    if (!_customerLoggedInPromise) {
+      _customerLoggedInPromise = fetch('/account', { method: 'GET', redirect: 'follow', credentials: 'same-origin' })
+        .then((res) => !res.url.includes('/account/login'))
+        .catch(() => false);
+    }
+    return _customerLoggedInPromise;
+  }
+
   const DEFAULT_CONFIG = {
     titleText: 'Đánh giá sản phẩm',
     accentColor: '#f59e0b',
@@ -122,6 +132,12 @@
 
   function isValidEmail(value) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
+  }
+
+  function isValidPhone(value) {
+    const cleaned = String(value || '').trim();
+    if (!cleaned) return false;
+    return /^[0-9+\-\s()]{8,20}$/.test(cleaned);
   }
 
   function getWidgetConfig(apiUrl, orgId) {
@@ -291,6 +307,11 @@
       this.config = { ...DEFAULT_CONFIG };
       this.state = {};
       this._bootPromise = null;
+      this._customerLoggedIn = false;
+    }
+
+    get shouldRequireLogin() {
+      return this.config.requireLogin && !this._customerLoggedIn;
     }
 
     get apiUrl() {
@@ -322,6 +343,9 @@
         this.config = { ...DEFAULT_CONFIG };
       }
       this.applyTheme(this.config);
+      if (this.config.requireLogin) {
+        this._customerLoggedIn = await checkCustomerLoggedIn();
+      }
       await this.initialize();
     }
 
@@ -509,7 +533,7 @@
 
       const action = actionNode.getAttribute('data-action');
       if (action === 'open-form') {
-        if (this.config.requireLogin) {
+        if (this.shouldRequireLogin) {
           window.location.href = ACCOUNT_LOGIN_URL;
           return;
         }
@@ -665,7 +689,7 @@
       const email = this.state.formDraft.email.trim();
       const phone = this.state.formDraft.phone.trim();
 
-      if (this.config.requireLogin) {
+      if (this.shouldRequireLogin) {
         window.location.href = ACCOUNT_LOGIN_URL;
         return;
       }
@@ -679,8 +703,23 @@
         this.render();
         return;
       }
+      if (author.length < 2) {
+        this.state.formError = 'Họ Tên phải có ít nhất 2 ký tự';
+        this.render();
+        return;
+      }
+      if (author.length > 100) {
+        this.state.formError = 'Họ Tên tối đa 100 ký tự';
+        this.render();
+        return;
+      }
       if (this.config.formTitleMode === 'required' && !title) {
         this.state.formError = 'Vui lòng nhập Tiêu đề';
+        this.render();
+        return;
+      }
+      if (title && title.length > 100) {
+        this.state.formError = 'Tiêu đề tối đa 100 ký tự';
         this.render();
         return;
       }
@@ -689,8 +728,23 @@
         this.render();
         return;
       }
+      if (content && content.length > 2000) {
+        this.state.formError = 'Nội dung tối đa 2000 ký tự';
+        this.render();
+        return;
+      }
       if (this.config.formEmailMode === 'required' && !email) {
         this.state.formError = 'Vui lòng nhập Email';
+        this.render();
+        return;
+      }
+      if (email && !isValidEmail(email)) {
+        this.state.formError = 'Email không đúng định dạng';
+        this.render();
+        return;
+      }
+      if (email && email.length > 200) {
+        this.state.formError = 'Email tối đa 200 ký tự';
         this.render();
         return;
       }
@@ -699,8 +753,8 @@
         this.render();
         return;
       }
-      if (email && !isValidEmail(email)) {
-        this.state.formError = 'Email không đúng định dạng';
+      if (phone && !isValidPhone(phone)) {
+        this.state.formError = 'Số điện thoại không hợp lệ (8-20 ký tự, chỉ số và ký tự +, -, ())';
         this.render();
         return;
       }
@@ -770,8 +824,8 @@
         filters += `<button class="f1genzapp-review-pill ${this.state.filterHasMedia ? 'f1genzapp-review-pill--active' : ''}" data-filter-media="1">Có hình ảnh</button></div>`;
       }
 
-      const writeLabel = this.config.requireLogin ? 'Đăng nhập để đánh giá' : 'Viết đánh giá';
-      const writeAction = this.config.requireLogin
+      const writeLabel = this.shouldRequireLogin ? 'Đăng nhập để đánh giá' : 'Viết đánh giá';
+      const writeAction = this.shouldRequireLogin
         ? `<a class="f1genzapp-review-btn--write f1genzapp-review-btn--login" href="${ACCOUNT_LOGIN_URL}" title="Đăng nhập tại /account">${writeLabel}</a>`
         : `<button type="button" class="f1genzapp-review-btn--write" data-action="open-form">${writeLabel}</button>`;
       return `<div class="f1genzapp-review-section">
@@ -1057,7 +1111,7 @@
 
       const action = actionNode.getAttribute('data-action');
       if (action === 'open-form') {
-        if (this.config.requireLogin) {
+        if (this.shouldRequireLogin) {
           window.location.href = ACCOUNT_LOGIN_URL;
           return;
         }
@@ -1115,7 +1169,7 @@
     }
 
     async submitForm() {
-      if (this.config.requireLogin) {
+      if (this.shouldRequireLogin) {
         window.location.href = ACCOUNT_LOGIN_URL;
         return;
       }
@@ -1129,8 +1183,38 @@
         this.render();
         return;
       }
+      if (author.length < 2) {
+        this.state.formError = 'Họ Tên phải có ít nhất 2 ký tự';
+        this.render();
+        return;
+      }
+      if (author.length > 100) {
+        this.state.formError = 'Họ Tên tối đa 100 ký tự';
+        this.render();
+        return;
+      }
       if (!question) {
         this.state.formError = 'Vui lòng nhập câu hỏi';
+        this.render();
+        return;
+      }
+      if (question.length < 5) {
+        this.state.formError = 'Câu hỏi phải có ít nhất 5 ký tự';
+        this.render();
+        return;
+      }
+      if (question.length > 1000) {
+        this.state.formError = 'Câu hỏi tối đa 1000 ký tự';
+        this.render();
+        return;
+      }
+      if (email && !isValidEmail(email)) {
+        this.state.formError = 'Email không đúng định dạng';
+        this.render();
+        return;
+      }
+      if (email && email.length > 200) {
+        this.state.formError = 'Email tối đa 200 ký tự';
         this.render();
         return;
       }
@@ -1140,9 +1224,6 @@
       this.render();
 
       try {
-        if (email && !isValidEmail(email)) {
-          throw new Error('Email không đúng định dạng');
-        }
         const payload = { author, question };
         if (email) payload.email = email;
         await fetchJSON(`${this.apiUrl}/api/public/qna/${this.productId}`, this.orgId, {
@@ -1254,7 +1335,7 @@
         this.renderPlaceholder('Đang tải hỏi đáp...');
         return;
       }
-      const askAction = this.config.requireLogin
+      const askAction = this.shouldRequireLogin
         ? `<a class="f1genzapp-review-btn--ask f1genzapp-review-btn--login" href="${ACCOUNT_LOGIN_URL}" title="Đăng nhập tại /account">Đăng nhập để đặt câu hỏi</a>`
         : `<button type="button" class="f1genzapp-review-btn--ask" data-action="open-form">Đặt câu hỏi</button>`;
       this.renderTemplate(`<div class="f1genzapp-review-preview">
