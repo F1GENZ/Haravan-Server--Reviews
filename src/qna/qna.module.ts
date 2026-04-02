@@ -11,6 +11,6 @@ import { QnaMetafieldService } from './qna-metafield.service';
   imports: [HaravanModule, ReviewModule, StatsModule],
   controllers: [QnaController, PublicQnaController],
   providers: [QnaService, QnaMetafieldService],
-  exports: [QnaService],
+  exports: [QnaService, QnaMetafieldService],
 })
 export class QnaModule {}

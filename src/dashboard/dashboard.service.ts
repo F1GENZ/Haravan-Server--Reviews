@@ -1,7 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { StatsService } from '../stats/stats.service';
 import { ReviewService } from '../review/review.service';
+import { ReviewMetafieldService } from '../review/review-metafield.service';
 import { QnaService } from '../qna/qna.service';
+import { QnaMetafieldService } from '../qna/qna-metafield.service';
 import { HaravanAPIService } from '../haravan/haravan.api';
 
 @Injectable()
@@ -11,7 +13,9 @@ export class DashboardService {
   constructor(
     private readonly statsService: StatsService,
     private readonly reviewService: ReviewService,
+    private readonly reviewMetafield: ReviewMetafieldService,
     private readonly qnaService: QnaService,
+    private readonly qnaMetafield: QnaMetafieldService,
     private readonly haravanAPI: HaravanAPIService,
   ) {}
 
@@ -91,6 +95,10 @@ export class DashboardService {
       title?: string;
     }>;
 
+    // Import metafield services for direct calculation
+    const reviewMetafield = this.reviewMetafield;
+    const qnaMetafield = this.qnaMetafield;
+
     const summaries: Array<{
       productId: string;
       reviewSummary: {
@@ -111,10 +119,14 @@ export class DashboardService {
     for (const product of products) {
       const pid = String(product.id);
       try {
-        const [reviewSummary, qnaSummary] = await Promise.all([
-          this.reviewService.getSummary(token, orgid, pid),
-          this.qnaService.getSummary(token, orgid, pid),
+        // Load raw data and recalculate from scratch
+        const [reviews, questions] = await Promise.all([
+          reviewMetafield.loadReviews(token, pid).catch(() => []),
+          qnaMetafield.loadQuestions(token, pid).catch(() => []),
         ]);
+
+        const reviewSummary = reviewMetafield.calculateSummary(reviews);
+        const qnaSummary = qnaMetafield.calculateSummary(questions);
 
         let recentReviews:
           | Array<{
@@ -125,23 +137,14 @@ export class DashboardService {
               created_at: number;
             }>
           | undefined;
-        if (reviewSummary.count > 0) {
-          try {
-            const reviews = await this.reviewService.getReviews(
-              token,
-              orgid,
-              pid,
-            );
-            recentReviews = reviews.slice(0, 3).map((r) => ({
-              id: r.id,
-              rating: r.rating,
-              author: r.author,
-              content: r.content,
-              created_at: r.created_at,
-            }));
-          } catch {
-            /* skip */
-          }
+        if (reviews.length > 0) {
+          recentReviews = reviews.slice(0, 3).map((r) => ({
+            id: r.id,
+            rating: r.rating,
+            author: r.author,
+            content: r.content,
+            created_at: r.created_at,
+          }));
         }
 
         summaries.push({

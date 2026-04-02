@@ -10,6 +10,6 @@ import { ReviewMetafieldService } from './review-metafield.service';
   imports: [HaravanModule, StatsModule],
   controllers: [ReviewController, PublicReviewController],
   providers: [ReviewService, ReviewMetafieldService],
-  exports: [ReviewService],
+  exports: [ReviewService, ReviewMetafieldService],
 })
 export class ReviewModule {}
