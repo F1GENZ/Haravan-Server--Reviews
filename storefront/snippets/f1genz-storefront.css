@@ -14,6 +14,7 @@
   --f1genzapp-review-reply-bg: #f0f5ff;
   --f1genzapp-review-reply-border: #1677ff;
   display: block;
+  font-size: 17px;
   color: var(--f1genzapp-review-text);
   line-height: 1.55;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
@@ -108,6 +109,12 @@
   background: transparent;
   color: inherit;
   font: inherit;
+}
+
+.f1genzapp-review-feedback-stack *:focus-visible {
+  outline: none !important;
+  outline-offset: 0 !important;
+  box-shadow: none !important;
 }
 
 .f1genzapp-review-bar-row__label {
