@@ -20,6 +20,36 @@ import { sanitizeText } from '../common/utils/sanitize';
 const LOCK_TTL = 30; // 30 seconds
 const LOCK_MAX_RETRIES = 4;
 const LOCK_BASE_DELAY = 500; // ms
+const ALL_REVIEWS_CACHE_TTL = 60; // seconds
+
+export type AllReviewsSort = 'newest' | 'oldest';
+export type AllReviewsStatus =
+  | 'all'
+  | 'approved'
+  | 'pending'
+  | 'hidden'
+  | 'spam'
+  | 'unreplied';
+
+export type ReviewListItem = Review & { productId: string };
+
+export type AllReviewsPage = {
+  items: ReviewListItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  statusCounts: Record<AllReviewsStatus, number>;
+};
+
+const ALL_REVIEW_STATUS_COUNTS = (): Record<AllReviewsStatus, number> => ({
+  all: 0,
+  approved: 0,
+  pending: 0,
+  hidden: 0,
+  spam: 0,
+  unreplied: 0,
+});
 
 const generateId = (): string => randomBytes(12).toString('base64url');
 
@@ -83,6 +113,35 @@ export class ReviewService {
 
   private lockKey(orgid: string, productId: string): string {
     return `lock:reviews:${orgid}:${productId}`;
+  }
+
+  private allReviewsCachePrefix(orgid: string): string {
+    return `cache:reviews:all:${orgid}`;
+  }
+
+  private allReviewsCacheKey(
+    orgid: string,
+    options: {
+      page: number;
+      pageSize: number;
+      sortBy: AllReviewsSort;
+      status: AllReviewsStatus;
+      star?: number;
+    },
+  ): string {
+    const suffix = JSON.stringify(options);
+    return `${this.allReviewsCachePrefix(orgid)}:${suffix}`;
+  }
+
+  private async invalidateAllReviewsCache(orgid: string): Promise<void> {
+    try {
+      const keys = await this.redis.scanKeys(`${this.allReviewsCachePrefix(orgid)}:*`);
+      await this.redis.delMany(keys);
+    } catch (err) {
+      this.logger.warn(
+        `All reviews cache clear failed for ${orgid}: ${(err as Error)?.message}`,
+      );
+    }
   }
 
   private static readonly CONFIG_NAMESPACE = 'reviews';
@@ -198,6 +257,50 @@ export class ReviewService {
     return this.metafieldService.loadReviews(token, productId);
   }
 
+  private normalizeAllReviewsPage(value: number | undefined): number {
+    if (!Number.isFinite(value)) return 1;
+    return Math.max(1, Math.trunc(value as number));
+  }
+
+  private normalizeAllReviewsPageSize(value: number | undefined): number {
+    if (!Number.isFinite(value)) return 20;
+    return Math.min(100, Math.max(1, Math.trunc(value as number)));
+  }
+
+  private matchesAllReviewsFilter(
+    review: Review,
+    status: AllReviewsStatus,
+    star?: number,
+  ): boolean {
+    const normalizedStatus = (review.status || 'approved') as ReviewStatus;
+    if (status === 'unreplied') {
+      if (review.reply) return false;
+    } else if (status !== 'all' && normalizedStatus !== status) {
+      return false;
+    }
+
+    if (star && Number(review.rating) !== star) return false;
+    return true;
+  }
+
+  private insertBoundedSortedReview(
+    buffer: ReviewListItem[],
+    review: ReviewListItem,
+    limit: number,
+    sortBy: AllReviewsSort,
+  ): void {
+    if (limit <= 0) return;
+    buffer.push(review);
+    buffer.sort((a, b) =>
+      sortBy === 'oldest'
+        ? a.created_at - b.created_at
+        : b.created_at - a.created_at,
+    );
+    if (buffer.length > limit) {
+      buffer.length = limit;
+    }
+  }
+
   /**
    * Load all reviews across all products that have reviews.
    * Uses stats to get product IDs, then loads in parallel (up to 6 concurrent).
@@ -231,6 +334,108 @@ export class ReviewService {
     }
 
     return results.sort((a, b) => b.created_at - a.created_at);
+  }
+
+  async getAllReviewsPage(
+    token: string,
+    orgid: string,
+    options: {
+      page?: number;
+      pageSize?: number;
+      sortBy?: AllReviewsSort;
+      status?: AllReviewsStatus;
+      star?: number;
+    } = {},
+  ): Promise<AllReviewsPage> {
+    const page = this.normalizeAllReviewsPage(options.page);
+    const pageSize = this.normalizeAllReviewsPageSize(options.pageSize);
+    const sortBy: AllReviewsSort =
+      options.sortBy === 'oldest' ? 'oldest' : 'newest';
+    const status: AllReviewsStatus = [
+      'all',
+      'approved',
+      'pending',
+      'hidden',
+      'spam',
+      'unreplied',
+    ].includes(String(options.status))
+      ? (options.status as AllReviewsStatus)
+      : 'all';
+    const star =
+      options.star && options.star >= 1 && options.star <= 5
+        ? options.star
+        : undefined;
+    const cacheKey = this.allReviewsCacheKey(orgid, {
+      page,
+      pageSize,
+      sortBy,
+      status,
+      ...(star ? { star } : {}),
+    });
+    const cached = await this.redis.get<AllReviewsPage>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const stats = await this.statsService.getDecodedStats(token, orgid);
+    const productIds = stats.products
+      .filter((p) => p.reviewCount > 0)
+      .map((p) => p.productId);
+
+    const counts = ALL_REVIEW_STATUS_COUNTS();
+    const bufferLimit = page * pageSize;
+    const offset = (page - 1) * pageSize;
+    const CONCURRENCY = 6;
+    const buffer: ReviewListItem[] = [];
+    let totalMatches = 0;
+
+    for (let i = 0; i < productIds.length; i += CONCURRENCY) {
+      const chunk = productIds.slice(i, i + CONCURRENCY);
+      const chunkResults = await Promise.all(
+        chunk.map(async (productId) => {
+          try {
+            const reviews = await this.metafieldService.loadReviews(
+              token,
+              productId,
+            );
+            return reviews.map((review) => ({ ...review, productId }));
+          } catch {
+            return [] as ReviewListItem[];
+          }
+        }),
+      );
+
+      for (const reviews of chunkResults) {
+        for (const review of reviews) {
+          counts.all += 1;
+          const normalizedStatus = (review.status || 'approved') as ReviewStatus;
+          if (counts[normalizedStatus] !== undefined) {
+            counts[normalizedStatus] += 1;
+          }
+          if (!review.reply) counts.unreplied += 1;
+
+          if (!this.matchesAllReviewsFilter(review, status, star)) continue;
+          totalMatches += 1;
+          this.insertBoundedSortedReview(buffer, review, bufferLimit, sortBy);
+        }
+      }
+    }
+
+    const totalPages = Math.max(1, Math.ceil(totalMatches / pageSize));
+    const currentPage = Math.min(page, totalPages);
+    const currentOffset = (currentPage - 1) * pageSize;
+    const items = buffer.slice(currentOffset, currentOffset + pageSize);
+
+    const result: AllReviewsPage = {
+      items,
+      total: totalMatches,
+      page: currentPage,
+      pageSize,
+      totalPages,
+      statusCounts: counts,
+    };
+    await this.redis.set(cacheKey, result, ALL_REVIEWS_CACHE_TTL);
+    return result;
   }
 
   async getSummary(
@@ -305,6 +510,7 @@ export class ReviewService {
           created_at: review.created_at,
         })
         .catch((e) => this.logger.warn(`Stats update failed: ${e?.message}`));
+      await this.invalidateAllReviewsCache(orgid);
 
       return review;
     } finally {
@@ -356,6 +562,7 @@ export class ReviewService {
       this.statsService
         .updateProductReviewStats(token, orgid, productId, summary)
         .catch((e) => this.logger.warn(`Stats update failed: ${e?.message}`));
+      await this.invalidateAllReviewsCache(orgid);
 
       return review;
     } finally {
@@ -393,6 +600,7 @@ export class ReviewService {
         .catch((e) =>
           this.logger.warn(`Stats recent remove failed: ${e?.message}`),
         );
+      await this.invalidateAllReviewsCache(orgid);
 
       return true;
     } finally {
@@ -426,6 +634,7 @@ export class ReviewService {
         summary,
         metafields,
       );
+      await this.invalidateAllReviewsCache(orgid);
 
       return reviews[index];
     } finally {
@@ -458,6 +667,7 @@ export class ReviewService {
         summary,
         metafields,
       );
+      await this.invalidateAllReviewsCache(orgid);
 
       return reviews[index];
     } finally {

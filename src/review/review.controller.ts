@@ -6,10 +6,13 @@ import {
   Delete,
   Param,
   Body,
+  Query,
   UseGuards,
   Req,
   NotFoundException,
   BadRequestException,
+  DefaultValuePipe,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { ShopAuthGuard } from '../common/guards/shop-auth.guard';
 import { ReviewService } from './review.service';
@@ -75,9 +78,33 @@ export class ReviewController {
   }
 
   @Get('all')
-  async getAllReviews(@Req() req: AuthRequest) {
+  async getAllReviews(
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('pageSize', new DefaultValuePipe(20), ParseIntPipe) pageSize: number,
+    @Query('sortBy') sortBy: string | undefined,
+    @Query('status') status: string | undefined,
+    @Query('star') starRaw: string | undefined,
+    @Req() req: AuthRequest,
+  ) {
     if (!req.token || !req.orgid) throw new BadRequestException('Missing auth');
-    const reviews = await this.reviewService.getAllReviews(req.token, req.orgid);
+    const star = starRaw ? Number.parseInt(starRaw, 10) : undefined;
+    const reviews = await this.reviewService.getAllReviewsPage(req.token, req.orgid, {
+      page,
+      pageSize,
+      sortBy: sortBy === 'oldest' ? 'oldest' : 'newest',
+      status: ['all', 'approved', 'pending', 'hidden', 'spam', 'unreplied'].includes(
+        String(status),
+      )
+        ? (status as
+            | 'all'
+            | 'approved'
+            | 'pending'
+            | 'hidden'
+            | 'spam'
+            | 'unreplied')
+        : 'all',
+      star: Number.isFinite(star) ? star : undefined,
+    });
     return { data: reviews };
   }
 

@@ -42,6 +42,11 @@ export class RedisService implements OnModuleDestroy {
     return await this.client.del(key);
   }
 
+  async delMany(keys: string[]): Promise<number> {
+    if (!keys.length) return 0;
+    return await this.client.del(...keys);
+  }
+
   /** SET key value EX ttl NX — returns true if lock acquired, false if already held */
   async setNx(
     key: string,
