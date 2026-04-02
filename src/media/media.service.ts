@@ -32,11 +32,11 @@ export class MediaService {
     this.publicDomain = this.config.get<string>('R2_PUBLIC_DOMAIN') || '';
     const ticketSecret = this.config.get<string>('PUBLIC_UPLOAD_TICKET_SECRET');
     if (!ticketSecret) {
-      throw new Error(
-        'PUBLIC_UPLOAD_TICKET_SECRET is not set. Add it to .env before starting the server.',
+      this.logger.warn(
+        'PUBLIC_UPLOAD_TICKET_SECRET is not set — upload ticket signing will use R2_UPLOAD_SECRET as fallback. Set this variable to isolate upload ticket signing from other secrets.',
       );
     }
-    this.uploadTicketSecret = ticketSecret;
+    this.uploadTicketSecret = ticketSecret || this.uploadSecret;
   }
 
   validateProductId(productId: string): string {
